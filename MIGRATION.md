@@ -4,7 +4,7 @@
 
 - Migrated the project scaffold to `powerbi-visuals-tools 7.0.3`.
 - Updated the visual manifest to API `5.3.0` while keeping the original visual GUID so existing reports can continue to target the same visual identity.
-- Preserved the legacy implementation under `legacy/` for reference during feature-by-feature porting.
+- Preserved the legacy implementation in `legacy/src-legacy/visual.ts` for reference during feature-by-feature porting.
 - Replaced the legacy build inputs that depended on missing `../libraries/*` files with a self-contained TypeScript module setup.
 
 ## What works now
