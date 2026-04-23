@@ -12,6 +12,7 @@ import ITooltipService = powerbi.extensibility.ITooltipService;
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import PrimitiveValue = powerbi.PrimitiveValue;
+import ViewMode = powerbi.ViewMode;
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 
@@ -112,6 +113,8 @@ export class Visual implements IVisual {
     private readonly selectionManager: ISelectionManager;
     private readonly formattingSettingsService: FormattingSettingsService;
     private readonly root: HTMLDivElement;
+    private readonly toolbar: HTMLDivElement;
+    private readonly fileInput: HTMLInputElement;
     private readonly status: HTMLDivElement;
     private readonly svgHost: HTMLDivElement;
     private readonly tooltipService: ITooltipService;
@@ -134,7 +137,6 @@ export class Visual implements IVisual {
 
         this.selectionManager.registerOnSelectCallback(() => {
             const ids = this.selectionManager.getSelectionIds() as ISelectionId[];
-            this.status.textContent = `cb:${ids.length} has:${this.selectionManager.hasSelection()}`;
             if (this.currentSvg) {
                 this.applySelectionState(this.currentSvg, this.currentMatchedElements, ids);
             }
@@ -143,13 +145,35 @@ export class Visual implements IVisual {
         this.root = document.createElement("div");
         this.root.className = "synoptic-modern";
 
+        this.toolbar = document.createElement("div");
+        this.toolbar.className = "toolbar synoptic-toolbar";
+
+        const changeButton = document.createElement("button");
+        changeButton.type = "button";
+        changeButton.textContent = "Change";
+        changeButton.title = "Load an SVG map";
+        changeButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.fileInput.click();
+        });
+
+        this.fileInput = document.createElement("input");
+        this.fileInput.type = "file";
+        this.fileInput.accept = ".svg,image/svg+xml";
+        this.fileInput.multiple = true;
+        this.fileInput.className = "file";
+        this.fileInput.addEventListener("click", (event) => event.stopPropagation());
+        this.fileInput.addEventListener("change", () => this.handleLocalMapFiles(this.fileInput.files));
+
+        this.toolbar.append(changeButton, this.fileInput);
+
         this.status = document.createElement("div");
         this.status.className = "synoptic-status";
 
         this.svgHost = document.createElement("div");
         this.svgHost.className = "synoptic-map-host";
 
-        this.root.append(this.status, this.svgHost);
+        this.root.append(this.toolbar, this.status, this.svgHost);
         this.target.appendChild(this.root);
     }
 
@@ -161,6 +185,7 @@ export class Visual implements IVisual {
 
         this.root.style.width = `${options.viewport.width}px`;
         this.root.style.height = `${options.viewport.height}px`;
+        this.toolbar.hidden = !this.isEditMode(options.viewMode);
 
         const model = this.transform(options.dataViews?.[0], this.host.colorPalette);
         const currentNonce = ++this.updateNonce;
@@ -212,7 +237,7 @@ export class Visual implements IVisual {
 
         const dataPoints: SynopticDataPoint[] = [];
         const highlights = measureColumn?.highlights;
-        const hasHighlights = Array.isArray(highlights) && highlights.some((value) => value != null);
+        const hasHighlights = Array.isArray(highlights) && highlights.some((value) => this.isHighlightActive(this.readNumericValue(value)));
         const categories = categoryColumn?.values ?? [];
         for (let index = 0; index < categories.length; index++) {
             const rawKey = categories[index];
@@ -256,7 +281,7 @@ export class Visual implements IVisual {
                 key,
                 value,
                 highlightValue,
-                isHighlighted: highlightValue != null,
+                isHighlighted: this.isHighlightActive(highlightValue),
                 stateValue,
                 color,
                 selectionId: this.host.createSelectionIdBuilder()
@@ -313,16 +338,26 @@ export class Visual implements IVisual {
             }
 
             const matchedCount = model.dataPoints.filter((point) => this.getMatchingElements(point.key, matchMap).length > 0).length;
-            this.status.textContent = `${matchedCount}/${model.dataPoints.length} areas matched`;
+            this.status.textContent = this.buildStatusText(model, areas.length, matchMap.size, matchedCount);
+            const highlightedCount = model.dataPoints.filter((point) => point.isHighlighted).length;
+            this.writeDiagnostic(model.settings, "render", {
+                matchedAreas: matchedCount,
+                dataPoints: model.dataPoints.length,
+                highlightedDataPoints: highlightedCount,
+                svgAreas: areas.length,
+                indexedKeys: matchMap.size,
+                hasMap: Boolean(model.map),
+                hasBoundStates: model.hasBoundStates,
+                hasHighlights: model.hasHighlights,
+                mapName: model.map.displayName ?? model.map.URL ?? "inline SVG"
+            });
         } catch (error) {
             if (nonce !== this.updateNonce) {
                 return;
             }
 
             this.status.textContent = "Unable to load the configured SVG map.";
-            if (model.settings.general.showDiagnostic) {
-                console.error("Synoptic Panel render error", error);
-            }
+            this.writeDiagnostic(model.settings, "render error", error, true);
         }
     }
 
@@ -752,7 +787,7 @@ export class Visual implements IVisual {
 
     private async loadMapMarkup(map: SynopticMapDefinition): Promise<string> {
         const inlineData = map.data?.trim();
-        if (inlineData?.startsWith("<svg")) {
+        if (this.looksLikeSvgMarkup(inlineData)) {
             return inlineData;
         }
 
@@ -783,7 +818,7 @@ export class Visual implements IVisual {
         const categoryValue = mapColumn?.values?.find((value) => value != null && String(value).trim() !== "");
         if (categoryValue != null) {
             const mapValue = String(categoryValue).trim();
-            if (mapValue.startsWith("<svg")) {
+            if (this.looksLikeSvgMarkup(mapValue)) {
                 return { data: mapValue };
             }
 
@@ -800,7 +835,7 @@ export class Visual implements IVisual {
         }
 
         if (!raw.startsWith("[")) {
-            return raw.startsWith("<svg") ? { data: raw } : { URL: raw };
+            return this.looksLikeSvgMarkup(raw) ? { data: raw } : { URL: raw };
         }
 
         try {
@@ -808,8 +843,116 @@ export class Visual implements IVisual {
             const selectedIndex = Math.max(0, settings.general.imageSelected || 0);
             return maps[selectedIndex] ?? maps[0];
         } catch {
-            return raw.startsWith("<svg") ? { data: raw } : { URL: raw };
+            return this.looksLikeSvgMarkup(raw) ? { data: raw } : { URL: raw };
         }
+    }
+
+    private handleLocalMapFiles(fileList: FileList | null): void {
+        const files = Array.from(fileList ?? [])
+            .filter((file) => file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg"));
+
+        if (files.length === 0) {
+            this.status.textContent = "Please select an SVG file.";
+            this.fileInput.value = "";
+            return;
+        }
+
+        Promise.all(files.map((file) => this.readSvgFile(file)))
+            .then((maps) => {
+                const validMaps = maps.filter((map): map is SynopticMapDefinition => Boolean(map));
+                if (validMaps.length === 0) {
+                    this.status.textContent = "The selected file did not contain SVG markup.";
+                    return;
+                }
+
+                this.host.persistProperties({
+                    merge: [{
+                        objectName: "general",
+                        selector: null,
+                        properties: {
+                            imageData: JSON.stringify(validMaps),
+                            imageSelected: 0
+                        }
+                    }]
+                });
+
+                const suffix = validMaps.length === 1 ? "" : "s";
+                this.status.textContent = `Loaded ${validMaps.length} SVG map${suffix}.`;
+            })
+            .catch((error) => {
+                this.status.textContent = error instanceof Error ? error.message : "Could not load the selected SVG file.";
+            })
+            .finally(() => {
+                this.fileInput.value = "";
+            });
+    }
+
+    private readSvgFile(file: File): Promise<SynopticMapDefinition | null> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const data = String(reader.result ?? "").trim();
+                if (!this.looksLikeSvgMarkup(data)) {
+                    resolve(null);
+                    return;
+                }
+
+                resolve({
+                    URL: null,
+                    data,
+                    displayName: file.name.replace(/\.svg$/i, ""),
+                    areas: [],
+                    scale: {
+                        scale: 1,
+                        translation: [0, 0]
+                    }
+                });
+            };
+            reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+            reader.readAsText(file);
+        });
+    }
+
+    private looksLikeSvgMarkup(value: string | undefined): value is string {
+        return Boolean(value && /<svg[\s>]/i.test(value));
+    }
+
+    private buildStatusText(model: SynopticModel, svgAreaCount: number, indexedKeyCount: number, matchedCount: number): string {
+        const baseStatus = `${matchedCount}/${model.dataPoints.length} areas matched`;
+        if (!model.settings.general.showDiagnostic) {
+            return baseStatus;
+        }
+
+        const highlightedCount = model.dataPoints.filter((point) => point.isHighlighted).length;
+        return [
+            baseStatus,
+            `${highlightedCount} highlighted`,
+            `${svgAreaCount} SVG areas`,
+            `${indexedKeyCount} indexed keys`,
+            model.hasHighlights ? "highlighted" : "no highlights"
+        ].join(" | ");
+    }
+
+    private isHighlightActive(value: number | undefined): boolean {
+        return value != null && value !== 0;
+    }
+
+    private isEditMode(viewMode: ViewMode | undefined): boolean {
+        return viewMode === ViewMode.Edit || viewMode === ViewMode.InFocusEdit;
+    }
+
+    private writeDiagnostic(settings: SynopticVisualSettings, label: string, details: unknown, forceError = false): void {
+        if (!settings.general.showDiagnostic) {
+            return;
+        }
+
+        const prefix = `Synoptic Panel ${label}`;
+        if (forceError) {
+            console.error(prefix, details);
+            return;
+        }
+
+        console.info(prefix, details);
     }
 
     private readSettings(dataView: DataView | undefined): SynopticVisualSettings {
@@ -890,7 +1033,13 @@ export class Visual implements IVisual {
             if (!s.color) return false;
             return comparison === "<" ? stateValue < s.value : stateValue <= s.value;
         });
-        return match?.color ?? undefined;
+        if (match?.color) {
+            return match.color;
+        }
+
+        // Legacy Synoptic Panel treats the last configured state as the catch-all
+        // bucket for values above the highest <=/< threshold.
+        return [...ascending].reverse().find((s) => s.color)?.color ?? undefined;
     }
 
     private sortBoundStates(states: SynopticBoundState[], comparison: string): SynopticBoundState[] {
