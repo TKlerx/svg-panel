@@ -422,10 +422,12 @@ export class Visual implements IVisual {
             }
         }
 
+        const indexedElements = this.getIndexedElements(matchMap);
+
         if (model.settings.general.showUnmatched) {
             const unmatchedFill = model.settings.dataPoint.unmatchedFill;
             if (unmatchedFill) {
-                for (const element of this.collectRenderableElements(svgElement)) {
+                for (const element of indexedElements) {
                     if (!matchedElements.has(element)) {
                         element.style.fill = unmatchedFill;
                     }
@@ -434,7 +436,7 @@ export class Visual implements IVisual {
         }
 
         if (model.settings.dataLabels.show && model.settings.dataLabels.unmatchedLabels) {
-            for (const element of this.collectRenderableElements(svgElement)) {
+            for (const element of indexedElements) {
                 if (matchedElements.has(element)) {
                     continue;
                 }
@@ -454,6 +456,16 @@ export class Visual implements IVisual {
         });
 
         return { matchedElements, labels };
+    }
+
+    private getIndexedElements(matchMap: SvgMatchMap): Set<SVGElement> {
+        const elements = new Set<SVGElement>();
+        for (const matches of matchMap.values()) {
+            for (const element of matches) {
+                elements.add(element);
+            }
+        }
+        return elements;
     }
 
     private renderLabels(svgElement: SVGSVGElement, labels: LabelSpec[], settings: SynopticVisualSettings): void {
