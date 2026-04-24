@@ -17,6 +17,7 @@ import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 
 import { createSynopticModel, formatNumber, type SynopticDataPoint, type SynopticMapArea, type SynopticMapDefinition, type SynopticMapScale, type SynopticModel, type SynopticVisualSettings } from "./core/modelParsing";
 import { buildMatchVariants } from "./core/svgMatching";
+import { getUnmatchedAreas, isRelatedToMatchedArea } from "./core/unmatchedAreas";
 import { DEFAULT_ZOOM, buildTransformStyle, createZeroPan, nextZoom, shouldResetPanForZoom } from "./core/zoomPan";
 import { VisualFormattingSettingsModel } from "./settings";
 
@@ -390,39 +391,22 @@ export class Visual implements IVisual {
 
         const indexedElements = this.getIndexedElements(matchMap);
 
-        const unmatchedElements = this.getUnmatchedElements(indexedElements, matchedElements);
+        const unmatchedElements = getUnmatchedAreas(indexedElements, matchedElements);
 
-        for (const element of indexedElements) {
-            if (!matchedElements.has(element)) {
-                if (model.settings.general.showUnmatched) {
-                    element.style.display = "";
-                    const unmatchedFill = model.settings.dataPoint.unmatchedFill;
-                    if (unmatchedFill) {
-                        element.style.fill = unmatchedFill;
-                    }
-                } else {
-                    // Keep the element visible if it is an ancestor OR a descendant of a matched element,
-                    // to avoid hiding matched children or matched parent containers.
-                    let isRelatedToMatched = false;
-                    for (const matched of matchedElements) {
-                        if (element.contains(matched) || matched.contains(element)) {
-                            isRelatedToMatched = true;
-                            break;
-                        }
-                    }
-                    if (!isRelatedToMatched) {
-                        element.style.display = "none";
-                    }
+        for (const element of unmatchedElements) {
+            if (model.settings.general.showUnmatched) {
+                element.style.display = "";
+                const unmatchedFill = model.settings.dataPoint.unmatchedFill;
+                if (unmatchedFill) {
+                    element.style.fill = unmatchedFill;
                 }
+            } else if (!isRelatedToMatchedArea(element, matchedElements)) {
+                element.style.display = "none";
             }
         }
 
         if (model.settings.dataLabels.show && model.settings.dataLabels.unmatchedLabels && model.settings.general.showUnmatched) {
-            for (const element of indexedElements) {
-                if (matchedElements.has(element)) {
-                    continue;
-                }
-
+            for (const element of unmatchedElements) {
                 const labelText = this.buildUnmatchedLabelText(element, model.settings);
                 if (labelText) {
                     labels.push({
@@ -443,30 +427,6 @@ export class Visual implements IVisual {
         });
 
         return { matchedElements, labels };
-    }
-
-    private getUnmatchedElements(indexedElements: Set<SVGElement>, matchedElements: Set<SVGElement>): Set<SVGElement> {
-        const unmatchedElements = new Set<SVGElement>();
-
-        for (const element of indexedElements) {
-            if (matchedElements.has(element) || this.hasMatchedDescendant(element, matchedElements)) {
-                continue;
-            }
-
-            unmatchedElements.add(element);
-        }
-
-        return unmatchedElements;
-    }
-
-    private hasMatchedDescendant(element: SVGElement, matchedElements: Set<SVGElement>): boolean {
-        for (const matchedElement of matchedElements) {
-            if (matchedElement !== element && element.contains(matchedElement)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private getIndexedElements(matchMap: SvgMatchMap): Set<SVGElement> {
