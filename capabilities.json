@@ -551,7 +551,7 @@
       }
     },
     "colorBlind": {
-      "displayName": "Color Blindness by OKViz",
+      "displayName": "Color Blindness",
       "properties": {
         "vision": {
           "displayName": "Vision",

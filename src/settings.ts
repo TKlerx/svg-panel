@@ -369,7 +369,7 @@ class ColorBlindCardSettings extends FormattingSettingsCard {
     });
 
     name = "colorBlind";
-    displayName = "Color Blindness by OKViz";
+    displayName = "Color Blindness";
     analyticsPane = false;
     slices: FormattingSettingsSlice[] = [this.vision];
 }

@@ -19,7 +19,7 @@ Steps:
 2. Open the visual About dialog
 
 Expected:
-- name is `Synoptic Panel by OKViz`
+- name is `Mapped SVG Panel`
 - ID is `PBI_CV_815282F9_27F5_4950_9430_E910E0A8DB6A`
 - version matches the package under test
 
@@ -55,7 +55,7 @@ Steps:
 2. Open the format pane
 
 Expected:
-- cards appear for `General`, `Toolbar`, `Data Colors`, `States`, `Data labels`, `Color Blindness by OKViz`
+- cards appear for `General`, `Toolbar`, `Data Colors`, `States`, `Data labels`, `Color Blindness`
 
 ## G+D Machine Health Report
 

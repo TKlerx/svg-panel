@@ -164,7 +164,7 @@ The visual shall expose these cards in the modern format pane:
 - `Data Colors`
 - `States`
 - `Data labels`
-- `Color Blindness by OKViz`
+- `Color Blindness`
 
 The visual should eventually match the legacy card behavior more closely, including conditional visibility and any remaining legacy-only fields that still matter in real reports.
 

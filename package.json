@@ -1,10 +1,10 @@
 {
-  "name": "synoptic-panel-by-okviz",
-  "description": "Modernized Power BI custom visual scaffold for Synoptic Panel by OKViz",
+  "name": "mapped-svg-panel",
+  "description": "Modernized Power BI custom visual for mapping data onto SVG diagrams",
   "version": "1.5.1.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/okviz/synopticpanel"
+    "url": "https://github.com/TKlerx/SynopticPanel"
   },
   "license": "MIT",
   "scripts": {
