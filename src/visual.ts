@@ -203,7 +203,7 @@ export class Visual implements IVisual {
 
         this.zoomInButton = document.createElement("button");
         this.zoomInButton.type = "button";
-        this.zoomInButton.innerHTML = zoomInSvg;
+        this.zoomInButton.appendChild(this.parseSvgIcon(zoomInSvg));
         this.zoomInButton.title = "Zoom in";
         this.zoomInButton.addEventListener("click", (event) => {
             event.stopPropagation();
@@ -212,7 +212,7 @@ export class Visual implements IVisual {
 
         this.zoomOutButton = document.createElement("button");
         this.zoomOutButton.type = "button";
-        this.zoomOutButton.innerHTML = zoomOutSvg;
+        this.zoomOutButton.appendChild(this.parseSvgIcon(zoomOutSvg));
         this.zoomOutButton.title = "Zoom out";
         this.zoomOutButton.addEventListener("click", (event) => {
             event.stopPropagation();
@@ -221,7 +221,7 @@ export class Visual implements IVisual {
 
         this.zoomResetButton = document.createElement("button");
         this.zoomResetButton.type = "button";
-        this.zoomResetButton.innerHTML = zoomResetSvg;
+        this.zoomResetButton.appendChild(this.parseSvgIcon(zoomResetSvg));
         this.zoomResetButton.title = "Reset zoom";
         this.zoomResetButton.addEventListener("click", (event) => {
             event.stopPropagation();
@@ -445,6 +445,13 @@ export class Visual implements IVisual {
                 return;
             }
 
+            // Yield a frame before the heavy synchronous work (DOM parsing, indexing,
+            // event-listener attachment) so PBI Desktop's UI thread stays responsive.
+            await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()); });
+            if (nonce !== this.updateNonce) {
+                return;
+            }
+
             const svgElement = this.inflateSvg(svgMarkup);
             this.applySavedScale(svgElement, model.map.scale);
 
@@ -453,14 +460,16 @@ export class Visual implements IVisual {
                 : this.inferAreas(svgElement);
             const matchMap = this.indexSvg(svgElement, areas);
             const { matchedElements, labels: labelSpecs } = this.applyData(svgElement, matchMap, model);
-            if (model.settings.dataLabels.show) {
-                this.renderLabels(svgElement, labelSpecs, model.settings);
-            }
 
             this.svgHost.appendChild(svgElement);
             this.currentSvg = svgElement;
             this.currentMatchedElements = matchedElements;
             this.currentSettings = model.settings.general;
+
+            // Render labels after the SVG is in the DOM so getBBox() returns real bounds.
+            if (model.settings.dataLabels.show) {
+                this.renderLabels(svgElement, labelSpecs, model.settings);
+            }
 
             const activeIds = this.selectionManager.getSelectionIds() as ISelectionId[];
             if (activeIds.length > 0) {
@@ -570,9 +579,13 @@ export class Visual implements IVisual {
                 } else {
                     // Keep the element visible if it is an ancestor OR a descendant of a matched element,
                     // to avoid hiding matched children or matched parent containers.
-                    const isRelatedToMatched = [...matchedElements].some(
-                        (matched) => element.contains(matched) || matched.contains(element)
-                    );
+                    let isRelatedToMatched = false;
+                    for (const matched of matchedElements) {
+                        if (element.contains(matched) || matched.contains(element)) {
+                            isRelatedToMatched = true;
+                            break;
+                        }
+                    }
                     if (!isRelatedToMatched) {
                         element.style.display = "none";
                     }
@@ -940,6 +953,12 @@ export class Visual implements IVisual {
         const graphicsElement = element as unknown as SVGGraphicsElement;
         const box = graphicsElement.getBBox();
         return new DOMRect(box.x, box.y, box.width, box.height);
+    }
+
+    private parseSvgIcon(svgMarkup: string): SVGSVGElement {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
+        return document.importNode(doc.documentElement as unknown as SVGSVGElement, true);
     }
 
     private inflateSvg(svgMarkup: string): SVGSVGElement {
