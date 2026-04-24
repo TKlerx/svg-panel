@@ -1,5 +1,7 @@
 # Synoptic Panel Specification
 
+> Detailed behavior specs now live in [docs/specs](./specs/README.md). This file remains the high-level migration specification.
+
 ## Goal
 
 Synoptic Panel is a custom Power BI visual that renders an SVG-based map or diagram and binds report data to named areas within that SVG. The visual must preserve compatibility with existing reports that already use the historical visual identity `PBI_CV_815282F9_27F5_4950_9430_E910E0A8DB6A`.
