@@ -1,5 +1,5 @@
 /*
- *  Synoptic Panel by OKViz
+ *  Original legacy Synoptic Panel visual
  *  v1.4.1
  *
  *  Copyright (c) SQLBI. OKViz is a trademark of SQLBI Corp.

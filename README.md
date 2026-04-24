@@ -1,10 +1,8 @@
-# Synoptic Panel for Power BI
+# Mapped SVG Panel for Power BI
 
-Synoptic Panel by OKViz allows you to present one or more images (called maps, not necessarily geographical maps), assigning a meaning to arbitrary parts of them (called areas). You can highlight and color these areas dynamically and display several information over them. To design maps you can use a vector graphic editor or Synoptic Designer, a companion web tool located at https://synoptic.design/
+Mapped SVG Panel allows you to present one or more SVG diagrams (called maps, not necessarily geographical maps), assign meaning to arbitrary parts of them (called areas), and dynamically highlight or color those areas with Power BI data.
 
 ![alt tag](screenshot.png)
-
-Find out more on http://okviz.com/synoptic-panel/
 
 ## Modernization status
 
@@ -16,8 +14,12 @@ This repository now contains a modern Power BI custom visual scaffold based on `
 - Legacy features such as gallery workflows, advanced labels, state calculations, saturation logic, and the full old format pane still need to be ported.
 
 
-### Copyrights
+### Attribution and license
 
 Copyright (c) 2016-2017 OKViz - trademark of SQLBI Corp.
 
+This project is a modernized fork of the MIT-licensed v1 codebase. The original copyright and MIT permission notice are retained in accordance with the license.
+
 See the [LICENSE](/LICENSE) file for license rights and limitations (MIT).
+
+See [NOTICE.md](/NOTICE.md) for provenance, attribution, and independence notes.

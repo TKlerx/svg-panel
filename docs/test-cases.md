@@ -19,8 +19,8 @@ Steps:
 2. Open the visual About dialog
 
 Expected:
-- name is `Synoptic Panel by OKViz`
-- ID is `PBI_CV_815282F9_27F5_4950_9430_E910E0A8DB6A`
+- name is `Mapped SVG Panel`
+- ID is `PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425`
 - version matches the package under test
 
 ## Aldi Sample Report
@@ -55,7 +55,7 @@ Steps:
 2. Open the format pane
 
 Expected:
-- cards appear for `General`, `Toolbar`, `Data Colors`, `States`, `Data labels`, `Color Blindness by OKViz`
+- cards appear for `General`, `Toolbar`, `Data Colors`, `States`, `Data labels`, `Color Blindness`
 
 ## G+D Machine Health Report
 

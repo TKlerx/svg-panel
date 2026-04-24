@@ -54,7 +54,7 @@ Expected status after fallback matcher:
 
 | Feature | Aldi Sample | G+D Machine Health | Current Status |
 |---|---|---|---|
-| Visual identity preserved | Yes | Yes | Implemented |
+| Visual identity preserved | No; fork uses a new GUID | No; fork uses a new GUID | Product decision |
 | Persisted `imageData` load | Yes | Yes | Implemented |
 | Saved `areas[]` support | Yes | No | Implemented |
 | SVG fallback area inference | Not required | Required | Implemented, needs validation |

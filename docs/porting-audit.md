@@ -10,7 +10,7 @@ What was in the old visual, what is already ported, and what still needs work?
 
 ## Summary
 
-The modern visual has the correct visual identity, builds successfully, renders saved SVG maps, supports core matching, restores basic format cards, and now supports cross-filtering in the Aldi report.
+The modern visual has a fork-specific visual identity, builds successfully, renders saved SVG maps, supports core matching, restores basic format cards, and now supports cross-filtering in the Aldi report.
 
 However, the historical visual had a much larger surface area than the current port. The current port is best described as:
 
@@ -26,7 +26,7 @@ However, the historical visual had a much larger surface area than the current p
 
 | Area | Legacy Visual | Current Visual | Status |
 |---|---|---|---|
-| Visual GUID / identity | Preserved | Preserved | Ported |
+| Visual GUID / identity | Historical GUID | New fork-specific GUID | Product decision |
 | Package/build with current pbiviz | No | Yes | Ported |
 | Inline SVG render | Yes | Yes | Ported |
 | URL-based SVG load | Yes | Yes | Ported |
@@ -432,7 +432,7 @@ The Aldi sample report contains **3 Synoptic Panel visual instances**. Configura
 ## What Is Already Strong Enough To Build On
 
 These are in decent shape:
-- visual identity/GUID compatibility
+- fork-specific visual identity plus legacy behavior compatibility
 - modern packaging/build pipeline
 - persisted map loading
 - legacy ID normalization fallback

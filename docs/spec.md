@@ -4,12 +4,12 @@
 
 ## Goal
 
-Synoptic Panel is a custom Power BI visual that renders an SVG-based map or diagram and binds report data to named areas within that SVG. The visual must preserve compatibility with existing reports that already use the historical visual identity `PBI_CV_815282F9_27F5_4950_9430_E910E0A8DB6A`.
+Mapped SVG Panel is a custom Power BI visual that renders an SVG-based map or diagram and binds report data to named areas within that SVG. The fork uses its own visual identity `PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425` and keeps the historical implementation as a migration reference.
 
 ## Scope
 
 This specification covers:
-- visual identity and backward compatibility
+- visual identity and legacy behavior compatibility
 - supported data roles
 - map loading and persistence
 - area matching behavior
@@ -26,13 +26,14 @@ This specification does not yet fully define:
 ## Compatibility Goals
 
 The visual shall:
-- keep the existing visual GUID so previously-authored reports continue to bind to the same visual type
-- load persisted visual settings from existing PBIX/PBIP reports without requiring manual reconfiguration
+- use the fork-specific visual GUID `PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425`
+- preserve property names and data-role semantics so reports can be migrated from the historical visual with minimal reconfiguration after the new visual is imported
+- load persisted visual settings from existing PBIX/PBIP reports when those settings are carried over to this fork's visual instance
 - support reports that persist SVG metadata in different historical shapes, including reports with empty `areas[]` metadata
 - preserve cross-filtering with the Power BI host in both directions
 
 The visual should:
-- render old reports closely enough that saved report state remains meaningful
+- render migrated old reports closely enough that saved report state remains meaningful
 - keep property names stable where existing reports already persist them
 
 ## Data Roles
@@ -166,7 +167,7 @@ The visual shall expose these cards in the modern format pane:
 - `Data Colors`
 - `States`
 - `Data labels`
-- `Color Blindness by OKViz`
+- `Color Blindness`
 
 The visual should eventually match the legacy card behavior more closely, including conditional visibility and any remaining legacy-only fields that still matter in real reports.
 
