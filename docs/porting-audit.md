@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document compares the historical Synoptic Panel implementation in [legacy/src-legacy/visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts) with the current modern implementation in [src/visual.ts](C:/dev/SynopticPanel/src/visual.ts) and [src/settings.ts](C:/dev/SynopticPanel/src/settings.ts).
+This document compares the historical Synoptic Panel implementation in [legacy/src-legacy/visual.ts](../legacy/src-legacy/visual.ts) with the current modern implementation in [src/visual.ts](../src/visual.ts) and [src/settings.ts](../src/settings.ts).
 
 It answers one question:
 
@@ -85,9 +85,9 @@ Legacy visual capabilities:
 - map-switch filtering
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1628)
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1860)
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:2049)
+- [visual.ts](../legacy/src-legacy/visual.ts:1628)
+- [visual.ts](../legacy/src-legacy/visual.ts:1860)
+- [visual.ts](../legacy/src-legacy/visual.ts:2049)
 
 Current state:
 - no in-visual toolbar
@@ -97,14 +97,14 @@ Current state:
 - no property persistence path for newly chosen maps
 
 Current references:
-- [visual.ts](C:/dev/SynopticPanel/src/visual.ts)
+- [visual.ts](../src/visual.ts)
 
 Impact:
 - users can consume saved or bound maps, but they cannot recreate the old workflow for loading/changing SVGs from inside the visual
 
 ### 2. Format Cards Exist, But Many Properties Still Don’t Drive Runtime Behavior
 
-The format pane now exists in [settings.ts](C:/dev/SynopticPanel/src/settings.ts), which is good. But many properties from [capabilities.json](C:/dev/SynopticPanel/capabilities.json) are not read or used in [visual.ts](C:/dev/SynopticPanel/src/visual.ts).
+The format pane now exists in [settings.ts](../src/settings.ts), which is good. But many properties from [capabilities.json](../capabilities.json) are not read or used in [visual.ts](../src/visual.ts).
 
 Examples currently not wired through runtime:
 - `toolbar.keep`
@@ -137,8 +137,8 @@ Legacy transform logic supported:
 - tooltip measure accumulation
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:230)
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:680)
+- [visual.ts](../legacy/src-legacy/visual.ts:230)
+- [visual.ts](../legacy/src-legacy/visual.ts:680)
 
 Current transform logic mainly supports:
 - `Category`
@@ -147,7 +147,7 @@ Current transform logic mainly supports:
 - one state-like measure for color thresholds
 
 Current references:
-- [visual.ts](C:/dev/SynopticPanel/src/visual.ts:148)
+- [visual.ts](../src/visual.ts:148)
 
 What is still effectively missing:
 - meaningful use of `Series`
@@ -173,10 +173,10 @@ Not yet ported:
 - target state ordering nuances
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1267)
+- [visual.ts](../legacy/src-legacy/visual.ts:1267)
 
 Current references:
-- [visual.ts](C:/dev/SynopticPanel/src/visual.ts:735)
+- [visual.ts](../src/visual.ts:735)
 
 Impact:
 - reports may show “some” state coloring while still being semantically wrong for target- or saturation-driven dashboards
@@ -198,11 +198,11 @@ Still missing or simplified:
 - automatic text color parity
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1267)
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:2022)
+- [visual.ts](../legacy/src-legacy/visual.ts:1267)
+- [visual.ts](../legacy/src-legacy/visual.ts:2022)
 
 Current references:
-- [visual.ts](C:/dev/SynopticPanel/src/visual.ts:325)
+- [visual.ts](../src/visual.ts:325)
 
 Impact:
 - labels can appear, but they are not yet on par with the old visual for dense or irregular shapes
@@ -223,11 +223,11 @@ Still missing:
 - richer border/fill-opacity parity
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1267)
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:2065)
+- [visual.ts](../legacy/src-legacy/visual.ts:1267)
+- [visual.ts](../legacy/src-legacy/visual.ts:2065)
 
 Current references:
-- [visual.ts](C:/dev/SynopticPanel/src/visual.ts:236)
+- [visual.ts](../src/visual.ts:236)
 
 Impact:
 - color semantics may diverge from old reports that depended on explicit object-level overrides
@@ -253,8 +253,8 @@ Legacy visual had:
 - persisted map scale and translation after user interaction
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1628)
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:2049)
+- [visual.ts](../legacy/src-legacy/visual.ts:1628)
+- [visual.ts](../legacy/src-legacy/visual.ts:2049)
 
 Current visual:
 - can apply saved scale
@@ -262,7 +262,7 @@ Current visual:
 - does not expose toolbar controls
 
 Current references:
-- [visual.ts](C:/dev/SynopticPanel/src/visual.ts:620)
+- [visual.ts](../src/visual.ts:620)
 
 Impact:
 - previously-authored dashboards that relied on interactive zoom lose that behavior
@@ -273,11 +273,11 @@ Legacy visual actively applied color vision simulation:
 - `OKVizUtility.applyColorBlindVision(...)`
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1032)
+- [visual.ts](../legacy/src-legacy/visual.ts:1032)
 
 Current visual:
-- exposes the card in [settings.ts](C:/dev/SynopticPanel/src/settings.ts)
-- does not implement any runtime effect in [visual.ts](C:/dev/SynopticPanel/src/visual.ts)
+- exposes the card in [settings.ts](../src/settings.ts)
+- does not implement any runtime effect in [visual.ts](../src/visual.ts)
 
 Impact:
 - the control is visible but not functional yet
@@ -293,14 +293,14 @@ Legacy enumerate logic dynamically hid or showed properties depending on:
 - whether `showAll` was enabled
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:2065)
+- [visual.ts](../legacy/src-legacy/visual.ts:2065)
 
 Current format pane:
 - has some top-level visibility handling
 - does not yet replicate most of the legacy conditional logic
 
 Current references:
-- [settings.ts](C:/dev/SynopticPanel/src/settings.ts)
+- [settings.ts](../src/settings.ts)
 
 Impact:
 - the pane is cleaner than before, but still not as context-aware as the historical visual
@@ -325,8 +325,8 @@ Impact:
 Legacy visual tracked `options.viewMode == ViewMode.Edit` and conditionally showed/hid toolbar and authoring UI.
 
 Legacy references:
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:951)
-- [visual.ts](C:/dev/SynopticPanel/legacy/src-legacy/visual.ts:1673)
+- [visual.ts](../legacy/src-legacy/visual.ts:951)
+- [visual.ts](../legacy/src-legacy/visual.ts:1673)
 
 Current visual:
 - does not read `viewMode` from update options

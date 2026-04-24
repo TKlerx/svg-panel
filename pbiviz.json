@@ -1,13 +1,13 @@
 {
   "visual": {
-    "name": "mappedSvgPanel",
-    "displayName": "Mapped SVG Panel",
+    "name": "svgPanel",
+    "displayName": "SVG Panel",
     "guid": "PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425",
     "visualClassName": "Visual",
     "version": "1.5.1.0",
-    "description": "Mapped SVG Panel allows you to present SVG diagrams and highlight mapped areas dynamically with Power BI data.",
-    "supportUrl": "https://github.com/TKlerx/SynopticPanel",
-    "gitHubUrl": "https://github.com/TKlerx/SynopticPanel"
+    "description": "SVG Panel allows you to present SVG diagrams and highlight mapped areas dynamically with Power BI data.",
+    "supportUrl": "https://github.com/TKlerx/svg-panel",
+    "gitHubUrl": "https://github.com/TKlerx/svg-panel"
   },
   "apiVersion": "5.3.0",
   "author": {

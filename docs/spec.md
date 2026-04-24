@@ -4,7 +4,7 @@
 
 ## Goal
 
-Mapped SVG Panel is a custom Power BI visual that renders an SVG-based map or diagram and binds report data to named areas within that SVG. The fork uses its own visual identity `PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425` and keeps the historical implementation as a migration reference.
+SVG Panel is a custom Power BI visual that renders an SVG-based map or diagram and binds report data to named areas within that SVG. The fork uses its own visual identity `PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425` and keeps the historical implementation as a migration reference.
 
 ## Scope
 
@@ -38,7 +38,7 @@ The visual should:
 
 ## Data Roles
 
-The visual shall support these roles as defined in [capabilities.json](C:/dev/SynopticPanel/capabilities.json):
+The visual shall support these roles as defined in [capabilities.json](../capabilities.json):
 - `Category`: main matching key for SVG areas
 - `Series`: optional grouping/subcategory
 - `Y`: primary measure for fill/value behavior
