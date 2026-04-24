@@ -849,6 +849,17 @@ export class Visual implements IVisual {
             return cached;
         }
 
+        // In Power BI Service, the CSP is built from capabilities.json WebAccess parameters.
+        // Check privilege status first so we can surface a helpful message when web access
+        // is administratively disabled, rather than letting the browser throw a CSP error.
+        const accessStatus = await (this.host.webAccessService.webAccessStatus(url) as unknown as Promise<powerbi.PrivilegeStatus>);
+        if (accessStatus !== powerbi.PrivilegeStatus.Allowed) {
+            if (accessStatus === powerbi.PrivilegeStatus.DisabledByAdmin) {
+                throw new Error("Web access is disabled by the Power BI administrator. To load external SVG maps, ask your admin to enable 'Allow visuals to access external resources' in tenant settings.");
+            }
+            throw new Error(`Web access to this URL is not permitted in the current environment (status: ${accessStatus}).`);
+        }
+
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Map fetch failed with status ${response.status}`);

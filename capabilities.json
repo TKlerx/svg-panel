@@ -4,6 +4,8 @@
       "name": "WebAccess",
       "essential": false,
       "parameters": [
+        "https://*",
+        "http://*",
         "https://synoptic.design",
         "https://*.synoptic.design",
         "http://synoptic.design",
