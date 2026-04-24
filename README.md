@@ -21,3 +21,5 @@ Copyright (c) 2016-2017 OKViz - trademark of SQLBI Corp.
 This project is a modernized fork of the MIT-licensed v1 codebase. The original copyright and MIT permission notice are retained in accordance with the license.
 
 See the [LICENSE](/LICENSE) file for license rights and limitations (MIT).
+
+See [NOTICE.md](/NOTICE.md) for provenance, attribution, and independence notes.
