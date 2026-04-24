@@ -19,7 +19,7 @@ Steps:
 2. Open the visual About dialog
 
 Expected:
-- name is `Mapped SVG Panel`
+- name is `SVG Panel`
 - ID is `PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425`
 - version matches the package under test
 

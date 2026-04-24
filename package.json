@@ -1,10 +1,10 @@
 {
-  "name": "mapped-svg-panel",
+  "name": "svg-panel",
   "description": "Modernized Power BI custom visual for mapping data onto SVG diagrams",
   "version": "1.5.1.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TKlerx/SynopticPanel"
+    "url": "https://github.com/TKlerx/svg-panel"
   },
   "license": "MIT",
   "scripts": {
