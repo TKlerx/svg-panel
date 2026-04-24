@@ -66,6 +66,9 @@ interface SynopticVisualSettings {
         enclose: boolean;
         wordWrap: boolean;
     };
+    toolbar: {
+        zoom: boolean;
+    };
 }
 
 interface SynopticManualState {
@@ -126,6 +129,18 @@ export class Visual implements IVisual {
     private currentSvg: SVGSVGElement | null;
     private currentMatchedElements: Set<SVGElement>;
     private currentSettings: SynopticVisualSettings["general"] | null;
+    private readonly zoomBar: HTMLDivElement;
+    private readonly zoomInButton: HTMLButtonElement;
+    private readonly zoomOutButton: HTMLButtonElement;
+    private readonly zoomResetButton: HTMLButtonElement;
+    private zoomLevel: number;
+    private wheelListener: ((e: WheelEvent) => void) | null;
+    private panOffset: { x: number; y: number };
+    private panDragStart: { x: number; y: number; ox: number; oy: number } | null;
+    private isPanDragging: boolean;
+    private panMouseDownListener: ((e: MouseEvent) => void) | null;
+    private panMouseMoveListener: ((e: MouseEvent) => void) | null;
+    private panMouseUpListener: ((e: MouseEvent) => void) | null;
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -138,6 +153,14 @@ export class Visual implements IVisual {
         this.currentSvg = null;
         this.currentMatchedElements = new Set();
         this.currentSettings = null;
+        this.zoomLevel = 1;
+        this.wheelListener = null;
+        this.panOffset = { x: 0, y: 0 };
+        this.panDragStart = null;
+        this.isPanDragging = false;
+        this.panMouseDownListener = null;
+        this.panMouseMoveListener = null;
+        this.panMouseUpListener = null;
 
         this.selectionManager.registerOnSelectCallback(() => {
             const ids = this.selectionManager.getSelectionIds() as ISelectionId[];
@@ -171,13 +194,52 @@ export class Visual implements IVisual {
 
         this.toolbar.append(this.changeButton, this.fileInput);
 
+        this.zoomBar = document.createElement("div");
+        this.zoomBar.className = "synoptic-zoom-bar";
+
+        const zoomInSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.7" y1="8.7" x2="13" y2="13"/></svg>`;
+        const zoomOutSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.7" y1="8.7" x2="13" y2="13"/></svg>`;
+        const zoomResetSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,4 1,1 4,1"/><polyline points="10,1 13,1 13,4"/><polyline points="13,10 13,13 10,13"/><polyline points="4,13 1,13 1,10"/></svg>`;
+
+        this.zoomInButton = document.createElement("button");
+        this.zoomInButton.type = "button";
+        this.zoomInButton.appendChild(this.parseSvgIcon(zoomInSvg));
+        this.zoomInButton.title = "Zoom in";
+        this.zoomInButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.adjustZoom(0.25);
+        });
+
+        this.zoomOutButton = document.createElement("button");
+        this.zoomOutButton.type = "button";
+        this.zoomOutButton.appendChild(this.parseSvgIcon(zoomOutSvg));
+        this.zoomOutButton.title = "Zoom out";
+        this.zoomOutButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.adjustZoom(-0.25);
+        });
+
+        this.zoomResetButton = document.createElement("button");
+        this.zoomResetButton.type = "button";
+        this.zoomResetButton.appendChild(this.parseSvgIcon(zoomResetSvg));
+        this.zoomResetButton.title = "Reset zoom";
+        this.zoomResetButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.resetZoomAndPan();
+        });
+
+        const zoomSep = document.createElement("span");
+        zoomSep.className = "synoptic-zoom-sep";
+
+        this.zoomBar.append(this.zoomInButton, this.zoomOutButton, zoomSep, this.zoomResetButton);
+
         this.status = document.createElement("div");
         this.status.className = "synoptic-status";
 
         this.svgHost = document.createElement("div");
         this.svgHost.className = "synoptic-map-host";
 
-        this.root.append(this.toolbar, this.status, this.svgHost);
+        this.root.append(this.toolbar, this.zoomBar, this.status, this.svgHost);
         this.target.appendChild(this.root);
     }
 
@@ -193,6 +255,68 @@ export class Visual implements IVisual {
 
         const model = this.transform(options.dataViews?.[0], this.host.colorPalette);
         this.changeButton.hidden = Boolean(model.map);
+
+        const zoomEnabled = model.settings.toolbar.zoom;
+        this.zoomBar.style.display = zoomEnabled ? "" : "none";
+        this.zoomBar.style.top = this.isEditMode(options.viewMode) ? "36px" : "0";
+
+        if (zoomEnabled && !this.wheelListener) {
+            this.wheelListener = (e: WheelEvent) => {
+                e.preventDefault();
+                this.adjustZoom(e.deltaY < 0 ? 0.15 : -0.15);
+            };
+            this.svgHost.addEventListener("wheel", this.wheelListener, { passive: false });
+
+            this.panMouseDownListener = (e: MouseEvent) => {
+                if (e.button !== 0 || this.zoomLevel <= 1) return;
+                this.panDragStart = { x: e.clientX, y: e.clientY, ox: this.panOffset.x, oy: this.panOffset.y };
+                this.svgHost.style.cursor = "grabbing";
+            };
+            this.panMouseMoveListener = (e: MouseEvent) => {
+                if (!this.panDragStart) return;
+                const dx = e.clientX - this.panDragStart.x;
+                const dy = e.clientY - this.panDragStart.y;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                    this.isPanDragging = true;
+                }
+                this.panOffset = { x: this.panDragStart.ox + dx, y: this.panDragStart.oy + dy };
+                this.applyTransform();
+            };
+            this.panMouseUpListener = () => {
+                if (!this.panDragStart) return;
+                this.panDragStart = null;
+                this.svgHost.style.cursor = this.zoomLevel > 1 ? "grab" : "";
+                if (this.isPanDragging) {
+                    setTimeout(() => { this.isPanDragging = false; }, 0);
+                }
+            };
+            this.svgHost.addEventListener("mousedown", this.panMouseDownListener);
+            document.addEventListener("mousemove", this.panMouseMoveListener);
+            document.addEventListener("mouseup", this.panMouseUpListener);
+        } else if (!zoomEnabled && this.wheelListener) {
+            this.svgHost.removeEventListener("wheel", this.wheelListener);
+            this.wheelListener = null;
+            if (this.panMouseDownListener) {
+                this.svgHost.removeEventListener("mousedown", this.panMouseDownListener);
+                this.panMouseDownListener = null;
+            }
+            if (this.panMouseMoveListener) {
+                document.removeEventListener("mousemove", this.panMouseMoveListener);
+                this.panMouseMoveListener = null;
+            }
+            if (this.panMouseUpListener) {
+                document.removeEventListener("mouseup", this.panMouseUpListener);
+                this.panMouseUpListener = null;
+            }
+            this.panOffset = { x: 0, y: 0 };
+            this.applyTransform();
+            this.svgHost.style.cursor = "";
+        }
+
+        if (zoomEnabled && !this.panDragStart) {
+            this.svgHost.style.cursor = this.zoomLevel > 1 ? "grab" : "";
+        }
+
         const currentNonce = ++this.updateNonce;
 
         void this.render(model, currentNonce);
@@ -321,6 +445,13 @@ export class Visual implements IVisual {
                 return;
             }
 
+            // Yield a frame before the heavy synchronous work (DOM parsing, indexing,
+            // event-listener attachment) so PBI Desktop's UI thread stays responsive.
+            await new Promise<void>(resolve => { requestAnimationFrame(() => resolve()); });
+            if (nonce !== this.updateNonce) {
+                return;
+            }
+
             const svgElement = this.inflateSvg(svgMarkup);
             this.applySavedScale(svgElement, model.map.scale);
 
@@ -329,14 +460,16 @@ export class Visual implements IVisual {
                 : this.inferAreas(svgElement);
             const matchMap = this.indexSvg(svgElement, areas);
             const { matchedElements, labels: labelSpecs } = this.applyData(svgElement, matchMap, model);
-            if (model.settings.dataLabels.show) {
-                this.renderLabels(svgElement, labelSpecs, model.settings);
-            }
 
             this.svgHost.appendChild(svgElement);
             this.currentSvg = svgElement;
             this.currentMatchedElements = matchedElements;
             this.currentSettings = model.settings.general;
+
+            // Render labels after the SVG is in the DOM so getBBox() returns real bounds.
+            if (model.settings.dataLabels.show) {
+                this.renderLabels(svgElement, labelSpecs, model.settings);
+            }
 
             const activeIds = this.selectionManager.getSelectionIds() as ISelectionId[];
             if (activeIds.length > 0) {
@@ -396,6 +529,7 @@ export class Visual implements IVisual {
 
                 this.attachTooltipEvents(element, point.tooltips, point.selectionId);
                 element.addEventListener("click", (event: MouseEvent) => {
+                    if (this.isPanDragging) { event.stopPropagation(); return; }
                     event.preventDefault();
                     event.stopPropagation();
 
@@ -445,9 +579,13 @@ export class Visual implements IVisual {
                 } else {
                     // Keep the element visible if it is an ancestor OR a descendant of a matched element,
                     // to avoid hiding matched children or matched parent containers.
-                    const isRelatedToMatched = [...matchedElements].some(
-                        (matched) => element.contains(matched) || matched.contains(element)
-                    );
+                    let isRelatedToMatched = false;
+                    for (const matched of matchedElements) {
+                        if (element.contains(matched) || matched.contains(element)) {
+                            isRelatedToMatched = true;
+                            break;
+                        }
+                    }
                     if (!isRelatedToMatched) {
                         element.style.display = "none";
                     }
@@ -472,6 +610,7 @@ export class Visual implements IVisual {
         }
 
         svgElement.addEventListener("click", () => {
+            if (this.isPanDragging) { return; }
             void this.selectionManager.clear().then(() => {
                 if (this.currentSvg) {
                     this.applySelectionState(this.currentSvg, this.currentMatchedElements, []);
@@ -816,6 +955,12 @@ export class Visual implements IVisual {
         return new DOMRect(box.x, box.y, box.width, box.height);
     }
 
+    private parseSvgIcon(svgMarkup: string): SVGSVGElement {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
+        return document.importNode(doc.documentElement as unknown as SVGSVGElement, true);
+    }
+
     private inflateSvg(svgMarkup: string): SVGSVGElement {
         const parser = new DOMParser();
         const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
@@ -1011,6 +1156,41 @@ export class Visual implements IVisual {
         ].join(" | ");
     }
 
+    private applyTransform(): void {
+        const hasOffset = this.panOffset.x !== 0 || this.panOffset.y !== 0;
+        const hasZoom = this.zoomLevel !== 1;
+        if (!hasOffset && !hasZoom) {
+            this.svgHost.style.transform = "";
+            this.svgHost.style.transformOrigin = "";
+        } else {
+            this.svgHost.style.transformOrigin = "center center";
+            this.svgHost.style.transform = hasOffset
+                ? `translate(${this.panOffset.x}px, ${this.panOffset.y}px) scale(${this.zoomLevel})`
+                : `scale(${this.zoomLevel})`;
+        }
+    }
+
+    private adjustZoom(delta: number): void {
+        this.zoomLevel = Math.min(4, Math.max(0.25, this.zoomLevel + delta));
+        if (this.zoomLevel === 1) {
+            this.panOffset = { x: 0, y: 0 };
+        }
+        this.applyTransform();
+        if (this.panMouseDownListener !== null) {
+            this.svgHost.style.cursor = this.zoomLevel > 1 ? "grab" : "";
+        }
+    }
+
+    private resetZoomAndPan(): void {
+        this.zoomLevel = 1;
+        this.panOffset = { x: 0, y: 0 };
+        this.panDragStart = null;
+        this.applyTransform();
+        if (this.panMouseDownListener !== null) {
+            this.svgHost.style.cursor = "";
+        }
+    }
+
     private isHighlightActive(value: number | undefined): boolean {
         return value != null && value !== 0;
     }
@@ -1066,6 +1246,9 @@ export class Visual implements IVisual {
                 fontSize: this.getValue<number>(objects, "dataLabels", "fontSize", 9) ?? 9,
                 enclose: this.getValue<boolean>(objects, "dataLabels", "enclose", true),
                 wordWrap: this.getValue<boolean>(objects, "dataLabels", "wordWrap", true)
+            },
+            toolbar: {
+                zoom: this.getValue<boolean>(objects, "toolbar", "zoom", true)
             }
         };
     }
