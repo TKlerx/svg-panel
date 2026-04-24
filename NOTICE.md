@@ -28,3 +28,24 @@ This fork keeps that attribution while using a new product name and a new Power 
 ## Branding
 
 The names OKViz, SQLBI, Synoptic Panel, and related marks may be trademarks or product names of their respective owners. This project avoids using those names as product branding and uses them only where needed for historical attribution, migration notes, or compatibility documentation.
+
+## Potential Repository Move
+
+The project may later move from this GitHub fork repository to a standalone repository such as `TKlerx/svg-panel`.
+
+Reason:
+
+- GitHub fork repositories tend to default pull requests toward the fork network/upstream, which can make normal GitHub flow awkward.
+- A standalone repository would provide a cleaner project identity while still preserving full git history if pushed from this repository.
+
+If/when the maintainers decide to move, the preferred process is:
+
+1. Wait until active collaborators are ready.
+2. Create an empty standalone repository.
+3. Push the full existing git history, branches, and tags to the new repository.
+4. Update `origin`, package metadata, README links, and visual support URLs.
+5. Recreate branch protection on `main`.
+6. Recreate or migrate open pull requests.
+7. Leave this repository with a pointer to the new home, or archive it.
+
+No repository move has been performed yet.
