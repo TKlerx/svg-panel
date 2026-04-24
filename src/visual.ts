@@ -16,6 +16,10 @@ import ViewMode = powerbi.ViewMode;
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 
+import { isHighlightActive } from "./core/interactionState";
+import { resolveDataPointColor } from "./core/stateColors";
+import { buildMatchVariants } from "./core/svgMatching";
+import { DEFAULT_ZOOM, buildTransformStyle, createZeroPan, nextZoom, shouldResetPanForZoom } from "./core/zoomPan";
 import { VisualFormattingSettingsModel } from "./settings";
 
 interface SynopticMapArea {
@@ -153,9 +157,9 @@ export class Visual implements IVisual {
         this.currentSvg = null;
         this.currentMatchedElements = new Set();
         this.currentSettings = null;
-        this.zoomLevel = 1;
+        this.zoomLevel = DEFAULT_ZOOM;
         this.wheelListener = null;
-        this.panOffset = { x: 0, y: 0 };
+        this.panOffset = createZeroPan();
         this.panDragStart = null;
         this.isPanDragging = false;
         this.panMouseDownListener = null;
@@ -366,7 +370,7 @@ export class Visual implements IVisual {
 
         const dataPoints: SynopticDataPoint[] = [];
         const highlights = measureColumn?.highlights;
-        const hasHighlights = Array.isArray(highlights) && highlights.some((value) => this.isHighlightActive(this.readNumericValue(value)));
+        const hasHighlights = Array.isArray(highlights) && highlights.some((value) => isHighlightActive(this.readNumericValue(value)));
         const categories = categoryColumn?.values ?? [];
         for (let index = 0; index < categories.length; index++) {
             const rawKey = categories[index];
@@ -410,7 +414,7 @@ export class Visual implements IVisual {
                 key,
                 value,
                 highlightValue,
-                isHighlighted: this.isHighlightActive(highlightValue),
+                isHighlighted: isHighlightActive(highlightValue),
                 stateValue,
                 color,
                 selectionId: this.host.createSelectionIdBuilder()
@@ -776,7 +780,7 @@ export class Visual implements IVisual {
             ];
 
             for (const candidate of candidateKeys) {
-                for (const variant of this.buildMatchVariants(candidate)) {
+                for (const variant of buildMatchVariants(candidate)) {
                     const elements = matchMap.get(variant) ?? [];
                     if (!elements.includes(element)) {
                         elements.push(element);
@@ -836,7 +840,7 @@ export class Visual implements IVisual {
         const matches: SVGElement[] = [];
         const seen = new Set<SVGElement>();
 
-        for (const variant of this.buildMatchVariants(key)) {
+        for (const variant of buildMatchVariants(key)) {
             for (const element of matchMap.get(variant) ?? []) {
                 if (!seen.has(element)) {
                     seen.add(element);
@@ -846,56 +850,6 @@ export class Visual implements IVisual {
         }
 
         return matches;
-    }
-
-    private buildMatchVariants(value: string | null | undefined): string[] {
-        const variants = new Set<string>();
-        const raw = value == null ? "" : String(value);
-        if (!raw.trim()) {
-            return [];
-        }
-
-        const candidates = [
-            raw,
-            this.toLegacySvgId(raw, "illustrator"),
-            this.toLegacySvgId(raw, "inkscape"),
-            this.toLegacySvgId(raw, "legacy")
-        ];
-
-        for (const candidate of candidates) {
-            const normalized = this.normalizeKey(candidate);
-            if (normalized) {
-                variants.add(normalized);
-            }
-        }
-
-        return Array.from(variants);
-    }
-
-    private toLegacySvgId(value: string, appSupport: "illustrator" | "inkscape" | "legacy"): string {
-        let returnId = value;
-        if (appSupport === "illustrator") {
-            returnId = returnId.replace(/[^A-Za-z0-9-:.]/g, (match) => {
-                if (match === " ") {
-                    return "_";
-                }
-
-                return `_x${match.charCodeAt(0).toString(16).toUpperCase()}_`;
-            });
-
-            if (/^\d/.test(returnId)) {
-                returnId = `_x${returnId.charCodeAt(0).toString(16).toUpperCase()}_${returnId.slice(1)}`;
-            }
-        } else if (appSupport === "inkscape") {
-            returnId = returnId.replace(/[^A-Za-z0-9-:.]/g, "_");
-        } else {
-            returnId = returnId.replace(/([^A-Za-z0-9[\]{}_.:-])\s?/g, "_");
-            if (/^\d/.test(returnId)) {
-                returnId = `_${returnId}`;
-            }
-        }
-
-        return returnId;
     }
 
     private isIgnoredOrExcluded(element: SVGElement): boolean {
@@ -1157,42 +1111,30 @@ export class Visual implements IVisual {
     }
 
     private applyTransform(): void {
-        const hasOffset = this.panOffset.x !== 0 || this.panOffset.y !== 0;
-        const hasZoom = this.zoomLevel !== 1;
-        if (!hasOffset && !hasZoom) {
-            this.svgHost.style.transform = "";
-            this.svgHost.style.transformOrigin = "";
-        } else {
-            this.svgHost.style.transformOrigin = "center center";
-            this.svgHost.style.transform = hasOffset
-                ? `translate(${this.panOffset.x}px, ${this.panOffset.y}px) scale(${this.zoomLevel})`
-                : `scale(${this.zoomLevel})`;
-        }
+        const transformStyle = buildTransformStyle(this.zoomLevel, this.panOffset);
+        this.svgHost.style.transform = transformStyle.transform;
+        this.svgHost.style.transformOrigin = transformStyle.transformOrigin;
     }
 
     private adjustZoom(delta: number): void {
-        this.zoomLevel = Math.min(4, Math.max(0.25, this.zoomLevel + delta));
-        if (this.zoomLevel === 1) {
-            this.panOffset = { x: 0, y: 0 };
+        this.zoomLevel = nextZoom(this.zoomLevel, delta);
+        if (shouldResetPanForZoom(this.zoomLevel)) {
+            this.panOffset = createZeroPan();
         }
         this.applyTransform();
         if (this.panMouseDownListener !== null) {
-            this.svgHost.style.cursor = this.zoomLevel > 1 ? "grab" : "";
+            this.svgHost.style.cursor = this.zoomLevel > DEFAULT_ZOOM ? "grab" : "";
         }
     }
 
     private resetZoomAndPan(): void {
-        this.zoomLevel = 1;
-        this.panOffset = { x: 0, y: 0 };
+        this.zoomLevel = DEFAULT_ZOOM;
+        this.panOffset = createZeroPan();
         this.panDragStart = null;
         this.applyTransform();
         if (this.panMouseDownListener !== null) {
             this.svgHost.style.cursor = "";
         }
-    }
-
-    private isHighlightActive(value: number | undefined): boolean {
-        return value != null && value !== 0;
     }
 
     private isEditMode(viewMode: ViewMode | undefined): boolean {
@@ -1260,48 +1202,13 @@ export class Visual implements IVisual {
         settings: SynopticVisualSettings,
         colorPalette: IColorPalette
     ): string {
-        const stateColor = this.resolveStateColor(stateValue, resolvedStates, settings.states);
-        if (stateColor) {
-            return stateColor;
-        }
-
-        return colorPalette.getColor(key).value ?? settings.dataPoint.defaultFill;
-    }
-
-    private resolveStateColor(
-        stateValue: number | undefined,
-        resolvedStates: SynopticBoundState[],
-        stateSettings: SynopticVisualSettings["states"]
-    ): string | undefined {
-        if (!stateSettings.show || stateValue == null || resolvedStates.length === 0) {
-            return undefined;
-        }
-
-        const comparison = stateSettings.comparison;
-
-        if (comparison === "=") {
-            const match = resolvedStates.find((s) => s.color && stateValue === s.value);
-            return match?.color ?? undefined;
-        }
-
-        if (comparison === ">=" || comparison === ">") {
-            const descending = [...resolvedStates].sort((a, b) => b.value - a.value);
-            const match = descending.find((s) => s.color && (comparison === ">" ? stateValue > s.value : stateValue >= s.value));
-            return match?.color ?? undefined;
-        }
-
-        const ascending = [...resolvedStates].sort((a, b) => a.value - b.value);
-        const match = ascending.find((s) => {
-            if (!s.color) return false;
-            return comparison === "<" ? stateValue < s.value : stateValue <= s.value;
-        });
-        if (match?.color) {
-            return match.color;
-        }
-
-        // Legacy Synoptic Panel treats the last configured state as the catch-all
-        // bucket for values above the highest <=/< threshold.
-        return [...ascending].reverse().find((s) => s.color)?.color ?? undefined;
+        return resolveDataPointColor(
+            stateValue,
+            resolvedStates,
+            settings.states,
+            colorPalette.getColor(key).value,
+            settings.dataPoint.defaultFill
+        );
     }
 
     private sortBoundStates(states: SynopticBoundState[], comparison: string): SynopticBoundState[] {
@@ -1395,16 +1302,4 @@ export class Visual implements IVisual {
         return Number.isInteger(value) ? `${value}` : value.toFixed(2).replace(/\.?0+$/, "");
     }
 
-    private normalizeKey(value: string | null | undefined): string {
-        if (!value) {
-            return "";
-        }
-
-        return value
-            .replace(/_x([A-Fa-f0-9]{2})_/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-            .replace(/_/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
-            .toLowerCase();
-    }
 }
