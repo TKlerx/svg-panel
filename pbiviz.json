@@ -4,7 +4,7 @@
     "displayName": "SVG Panel",
     "guid": "PBI_CV_07C304C8_34D8_45BC_AE03_B2864A3DB425",
     "visualClassName": "Visual",
-    "version": "1.5.1.0",
+    "version": "0.0.1.0",
     "description": "SVG Panel allows you to present SVG diagrams and highlight mapped areas dynamically with Power BI data.",
     "supportUrl": "https://github.com/TKlerx/svg-panel",
     "gitHubUrl": "https://github.com/TKlerx/svg-panel"
@@ -22,5 +22,5 @@
   "capabilities": "capabilities.json",
   "dependencies": null,
   "stringResources": [],
-  "version": "1.5.1.0"
+  "version": "0.0.1.0"
 }
