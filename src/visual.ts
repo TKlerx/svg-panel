@@ -11,102 +11,14 @@ import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import ITooltipService = powerbi.extensibility.ITooltipService;
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import IVisual = powerbi.extensibility.visual.IVisual;
-import PrimitiveValue = powerbi.PrimitiveValue;
 import ViewMode = powerbi.ViewMode;
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 
-import { isHighlightActive } from "./core/interactionState";
-import { resolveDataPointColor } from "./core/stateColors";
+import { createSynopticModel, formatNumber, type SynopticDataPoint, type SynopticMapArea, type SynopticMapDefinition, type SynopticMapScale, type SynopticModel, type SynopticVisualSettings } from "./core/modelParsing";
 import { buildMatchVariants } from "./core/svgMatching";
 import { DEFAULT_ZOOM, buildTransformStyle, createZeroPan, nextZoom, shouldResetPanForZoom } from "./core/zoomPan";
 import { VisualFormattingSettingsModel } from "./settings";
-
-interface SynopticMapArea {
-    displayName?: string;
-    elementId?: string;
-    selector?: string;
-    unmatchable?: boolean;
-}
-
-interface SynopticMapScale {
-    scale?: number;
-    translation?: [number, number];
-}
-
-interface SynopticMapDefinition {
-    URL?: string | null;
-    data?: string | null;
-    displayName?: string;
-    areas?: SynopticMapArea[];
-    scale?: SynopticMapScale;
-}
-
-interface SynopticVisualSettings {
-    general: {
-        imageData?: string;
-        imageSelected: number;
-        showDiagnostic: boolean;
-        showUnmatched: boolean;
-        showMatchCount: boolean;
-    };
-    dataPoint: {
-        borders: boolean;
-        defaultFill: string;
-        unmatchedFill?: string;
-        showAll: boolean;
-    };
-    states: {
-        show: boolean;
-        comparison: string;
-        manual: SynopticManualState[];
-    };
-    dataLabels: {
-        show: boolean;
-        unmatchedLabels: boolean;
-        labelStyle: string;
-        position: string;
-        fontSize: number;
-        enclose: boolean;
-        wordWrap: boolean;
-    };
-    toolbar: {
-        zoom: boolean;
-    };
-}
-
-interface SynopticManualState {
-    value?: number;
-    color?: string;
-}
-
-interface SynopticBoundState {
-    value: number;
-    color: string | null;
-    displayName: string | null;
-    sourcePosition: number;
-    isTarget: boolean;
-}
-
-interface SynopticDataPoint {
-    key: string;
-    value?: number;
-    highlightValue?: number;
-    isHighlighted?: boolean;
-    stateValue?: number;
-    color: string;
-    selectionId: ISelectionId;
-    tooltips: VisualTooltipDataItem[];
-}
-
-interface SynopticModel {
-    map?: SynopticMapDefinition;
-    dataPoints: SynopticDataPoint[];
-    boundStates: SynopticBoundState[];
-    hasBoundStates: boolean;
-    hasHighlights: boolean;
-    settings: SynopticVisualSettings;
-}
 
 interface LabelSpec {
     element: SVGElement;
@@ -333,108 +245,16 @@ export class Visual implements IVisual {
         return this.formattingSettingsService.buildFormattingModel(this.formattingSettings);
     }
 
-    private transform(dataView: DataView | undefined, colorPalette: IColorPalette): SynopticModel {
-        const settings = this.readSettings(dataView);
-        const categorical = dataView?.categorical;
-        const categoryColumn = categorical?.categories?.find((column) => column.source.roles?.Category);
-        const mapColumn = categorical?.categories?.find((column) => column.source.roles?.MapSeries);
-        const measureColumn = categorical?.values?.find((column) => column.source.roles?.Y);
-        const stateMeasureColumn = categorical?.values?.find((column) => column.source.roles?.State);
-        const tooltipColumns = categorical?.values?.filter((column) => column.source.roles?.tooltips) ?? [];
-        const boundStateColumns = categorical?.values?.filter((column) => column.source.roles?.states) ?? [];
-
-        const boundStates: SynopticBoundState[] = [];
-        const hasBoundStates = boundStateColumns.length > 0;
-
-        if (hasBoundStates) {
-            for (let s = 0; s < boundStateColumns.length; s++) {
-                const col = boundStateColumns[s];
-                const val = this.readNumericValue(col.values?.[0]);
-                if (val == null) continue;
-
-                const fillObj = col.source.objects?.["states"]?.["fill"] as { solid?: { color?: string } } | undefined;
-                boundStates.push({
-                    value: val,
-                    color: fillObj?.solid?.color ?? null,
-                    displayName: col.source.displayName ?? null,
-                    sourcePosition: s,
-                    isTarget: false
-                });
-            }
-        }
-
-        const resolvedStates = hasBoundStates
-            ? this.sortBoundStates(boundStates, settings.states.comparison)
-            : settings.states.manual.filter((s) => s.value != null && s.color)
-                .map((s, i) => ({ value: s.value!, color: s.color!, displayName: null, sourcePosition: i, isTarget: false }));
-
-        const dataPoints: SynopticDataPoint[] = [];
-        const highlights = measureColumn?.highlights;
-        const hasHighlights = Array.isArray(highlights) && highlights.some((value) => isHighlightActive(this.readNumericValue(value)));
-        const categories = categoryColumn?.values ?? [];
-        for (let index = 0; index < categories.length; index++) {
-            const rawKey = categories[index];
-            const key = rawKey == null ? "" : String(rawKey).trim();
-            if (!key || !categoryColumn) {
-                continue;
-            }
-
-            const value = this.readNumericValue(measureColumn?.values?.[index]);
-            const highlightValue = this.readNumericValue(highlights?.[index]);
-            const rawStateValue = this.readNumericValue(stateMeasureColumn?.values?.[index]);
-            const stateValue = rawStateValue ?? value;
-
-            const tooltips: VisualTooltipDataItem[] = [];
-            tooltips.push({ displayName: categoryColumn.source.displayName ?? "Category", value: key });
-            if (value != null) {
-                tooltips.push({
-                    displayName: measureColumn!.source.displayName ?? "Value",
-                    value: this.formatTooltipValue(value, measureColumn!.source.format)
-                });
-            }
-            if (stateValue != null && stateMeasureColumn) {
-                tooltips.push({
-                    displayName: stateMeasureColumn.source.displayName ?? "State",
-                    value: this.formatTooltipValue(stateValue, stateMeasureColumn.source.format)
-                });
-            }
-            for (const tooltipCol of tooltipColumns) {
-                const tooltipVal = tooltipCol.values?.[index];
-                if (tooltipVal != null) {
-                    tooltips.push({
-                        displayName: tooltipCol.source.displayName ?? "",
-                        value: this.formatTooltipValue(tooltipVal, tooltipCol.source.format)
-                    });
-                }
-            }
-
-            const color = this.resolveDataPointColor(key, stateValue, resolvedStates, settings, colorPalette);
-
-            dataPoints.push({
-                key,
-                value,
-                highlightValue,
-                isHighlighted: isHighlightActive(highlightValue),
-                stateValue,
-                color,
-                selectionId: this.host.createSelectionIdBuilder()
-                    .withCategory(categoryColumn, index)
-                    .createSelectionId(),
-                tooltips
-            });
-        }
-
-        return {
-            map: this.resolveMapDefinition(mapColumn, settings),
-            dataPoints,
-            boundStates: resolvedStates,
-            hasBoundStates,
-            hasHighlights,
-            settings
-        };
+    private transform(dataView: DataView | undefined, colorPalette: IColorPalette): SynopticModel<ISelectionId> {
+        return createSynopticModel(dataView, {
+            getColor: (key) => colorPalette.getColor(key).value,
+            createSelectionId: (categoryColumn, index) => this.host.createSelectionIdBuilder()
+                .withCategory(categoryColumn, index)
+                .createSelectionId()
+        });
     }
 
-    private async render(model: SynopticModel, nonce: number): Promise<void> {
+    private async render(model: SynopticModel<ISelectionId>, nonce: number): Promise<void> {
         this.status.textContent = "";
         this.svgHost.replaceChildren();
 
@@ -504,7 +324,7 @@ export class Visual implements IVisual {
         }
     }
 
-    private applyData(svgElement: SVGSVGElement, matchMap: SvgMatchMap, model: SynopticModel): { matchedElements: Set<SVGElement>; labels: LabelSpec[] } {
+    private applyData(svgElement: SVGSVGElement, matchMap: SvgMatchMap, model: SynopticModel<ISelectionId>): { matchedElements: Set<SVGElement>; labels: LabelSpec[] } {
         const matchedElements = new Set<SVGElement>();
         const labels: LabelSpec[] = [];
         svgElement.setAttribute("data-has-highlights", model.hasHighlights ? "true" : "false");
@@ -689,17 +509,17 @@ export class Visual implements IVisual {
         svgElement.appendChild(labelLayer);
     }
 
-    private buildLabelText(point: SynopticDataPoint, element: SVGElement, settings: SynopticVisualSettings): string {
+    private buildLabelText(point: SynopticDataPoint<ISelectionId>, element: SVGElement, settings: SynopticVisualSettings): string {
         const areaName = this.readElementDisplayName(element);
         switch (settings.dataLabels.labelStyle) {
             case "area":
                 return areaName ?? point.key;
             case "value":
-                return point.value == null ? "" : this.formatNumber(point.value);
+                return point.value == null ? "" : formatNumber(point.value);
             case "both":
-                return point.value == null ? point.key : `${point.key} ${this.formatNumber(point.value)}`;
+                return point.value == null ? point.key : `${point.key} ${formatNumber(point.value)}`;
             case "both2":
-                return point.value == null ? (areaName ?? point.key) : `${areaName ?? point.key} ${this.formatNumber(point.value)}`;
+                return point.value == null ? (areaName ?? point.key) : `${areaName ?? point.key} ${formatNumber(point.value)}`;
             case "category":
             default:
                 return point.key;
@@ -981,42 +801,6 @@ export class Visual implements IVisual {
         return svgMarkup;
     }
 
-    private resolveMapDefinition(
-        mapColumn: powerbi.DataViewCategoryColumn | undefined,
-        settings: SynopticVisualSettings
-    ): SynopticMapDefinition | undefined {
-        const categoryValue = mapColumn?.values?.find((value) => value != null && String(value).trim() !== "");
-        if (categoryValue != null) {
-            const mapValue = String(categoryValue).trim();
-            if (this.looksLikeSvgMarkup(mapValue)) {
-                return { data: mapValue };
-            }
-
-            return { URL: mapValue };
-        }
-
-        if (!settings.general.imageData) {
-            return undefined;
-        }
-
-        const raw = settings.general.imageData.trim();
-        if (!raw) {
-            return undefined;
-        }
-
-        if (!raw.startsWith("[")) {
-            return this.looksLikeSvgMarkup(raw) ? { data: raw } : { URL: raw };
-        }
-
-        try {
-            const maps = JSON.parse(raw) as SynopticMapDefinition[];
-            const selectedIndex = Math.max(0, settings.general.imageSelected || 0);
-            return maps[selectedIndex] ?? maps[0];
-        } catch {
-            return this.looksLikeSvgMarkup(raw) ? { data: raw } : { URL: raw };
-        }
-    }
-
     private handleLocalMapFiles(fileList: FileList | null): void {
         const files = Array.from(fileList ?? [])
             .filter((file) => file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg"));
@@ -1087,7 +871,7 @@ export class Visual implements IVisual {
         return Boolean(value && /<svg[\s>]/i.test(value));
     }
 
-    private buildStatusText(model: SynopticModel, svgAreaCount: number, indexedKeyCount: number, matchedCount: number): string {
+    private buildStatusText(model: SynopticModel<ISelectionId>, svgAreaCount: number, indexedKeyCount: number, matchedCount: number): string {
         if (!model.settings.general.showMatchCount && !model.settings.general.showDiagnostic) {
             return "";
         }
@@ -1155,68 +939,6 @@ export class Visual implements IVisual {
         console.info(prefix, details);
     }
 
-    private readSettings(dataView: DataView | undefined): SynopticVisualSettings {
-        const objects = dataView?.metadata?.objects;
-
-        return {
-            general: {
-                imageData: this.getValue<string>(objects, "general", "imageData"),
-                imageSelected: this.getValue<number>(objects, "general", "imageSelected", 0),
-                showDiagnostic: this.getValue<boolean>(objects, "general", "showDiagnostic", false),
-                showUnmatched: this.getValue<boolean>(objects, "general", "showUnmatched", true),
-                showMatchCount: this.getValue<boolean>(objects, "general", "showMatchCount", true)
-            },
-            dataPoint: {
-                borders: this.getValue<boolean>(objects, "dataPoint", "borders", true),
-                defaultFill: this.getFillColor(objects, "dataPoint", "defaultFill", "#01B8AA"),
-                unmatchedFill: this.getFillColor(objects, "dataPoint", "unmatchedFill"),
-                showAll: this.getValue<boolean>(objects, "dataPoint", "showAll", false)
-            },
-            states: {
-                show: this.getValue<boolean>(objects, "states", "show", true),
-                comparison: this.getValue<string>(objects, "states", "comparison", "<=") ?? "<=",
-                manual: [1, 2, 3, 4, 5].map((index) => ({
-                    value: this.getValue<number>(objects, "states", `manualState${index}`),
-                    color: this.getFillColor(objects, "states", `manualState${index}Fill`)
-                }))
-            },
-            dataLabels: {
-                show: this.getValue<boolean>(objects, "dataLabels", "show", false),
-                unmatchedLabels: this.getValue<boolean>(objects, "dataLabels", "unmatchedLabels", true),
-                labelStyle: this.getValue<string>(objects, "dataLabels", "labelStyle", "category") ?? "category",
-                position: this.getValue<string>(objects, "dataLabels", "position", "best") ?? "best",
-                fontSize: this.getValue<number>(objects, "dataLabels", "fontSize", 9) ?? 9,
-                enclose: this.getValue<boolean>(objects, "dataLabels", "enclose", true),
-                wordWrap: this.getValue<boolean>(objects, "dataLabels", "wordWrap", true)
-            },
-            toolbar: {
-                zoom: this.getValue<boolean>(objects, "toolbar", "zoom", true)
-            }
-        };
-    }
-
-    private resolveDataPointColor(
-        key: string,
-        stateValue: number | undefined,
-        resolvedStates: SynopticBoundState[],
-        settings: SynopticVisualSettings,
-        colorPalette: IColorPalette
-    ): string {
-        return resolveDataPointColor(
-            stateValue,
-            resolvedStates,
-            settings.states,
-            colorPalette.getColor(key).value,
-            settings.dataPoint.defaultFill
-        );
-    }
-
-    private sortBoundStates(states: SynopticBoundState[], comparison: string): SynopticBoundState[] {
-        if (comparison === "=") return states;
-        const asc = comparison.indexOf("<") > -1;
-        return [...states].sort((a, b) => asc ? a.value - b.value : b.value - a.value);
-    }
-
     private attachTooltipEvents(element: SVGElement, tooltipItems: VisualTooltipDataItem[], selectionId: ISelectionId): void {
         if (!this.tooltipService.enabled()) return;
 
@@ -1249,57 +971,6 @@ export class Visual implements IVisual {
                 immediately: false
             });
         });
-    }
-
-    private formatTooltipValue(value: PrimitiveValue, format?: string): string {
-        if (value == null) return "";
-        if (typeof value === "number") {
-            if (format) {
-                return this.formatNumberWithPattern(value, format);
-            }
-            return this.formatNumber(value);
-        }
-        return String(value);
-    }
-
-    private formatNumberWithPattern(value: number, format: string): string {
-        if (format.indexOf("%") > -1) {
-            return `${(value * 100).toFixed(1)}%`;
-        }
-        if (format.indexOf("0.0") > -1) {
-            const decimals = (format.match(/0\.(0+)/)?.[1] ?? "").length;
-            return value.toFixed(decimals);
-        }
-        return this.formatNumber(value);
-    }
-
-    private getFillColor(
-        objects: powerbi.DataViewObjects | undefined,
-        objectName: string,
-        propertyName: string,
-        defaultValue?: string
-    ): string | undefined {
-        const property = this.getValue<{ solid?: { color?: string } }>(objects, objectName, propertyName);
-        return property?.solid?.color ?? defaultValue;
-    }
-
-    private getValue<T>(
-        objects: powerbi.DataViewObjects | undefined,
-        objectName: string,
-        propertyName: string,
-        defaultValue?: T
-    ): T | undefined {
-        const object = objects?.[objectName] as powerbi.DataViewObject | undefined;
-        const property = object?.[propertyName];
-        return (property as T | undefined) ?? defaultValue;
-    }
-
-    private readNumericValue(value: PrimitiveValue): number | undefined {
-        return typeof value === "number" ? value : undefined;
-    }
-
-    private formatNumber(value: number): string {
-        return Number.isInteger(value) ? `${value}` : value.toFixed(2).replace(/\.?0+$/, "");
     }
 
 }
