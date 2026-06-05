@@ -49,6 +49,7 @@ export class Visual implements IVisual {
     private readonly zoomInButton: HTMLButtonElement;
     private readonly zoomOutButton: HTMLButtonElement;
     private readonly zoomResetButton: HTMLButtonElement;
+    private readonly loadingIndicator: HTMLDivElement;
     private zoomLevel: number;
     private wheelListener: ((e: WheelEvent) => void) | null;
     private panOffset: { x: number; y: number };
@@ -155,7 +156,13 @@ export class Visual implements IVisual {
         this.svgHost = document.createElement("div");
         this.svgHost.className = "synoptic-map-host";
 
-        this.root.append(this.toolbar, this.zoomBar, this.status, this.svgHost);
+        this.loadingIndicator = document.createElement("div");
+        this.loadingIndicator.className = "synoptic-loading hidden";
+        const spinner = document.createElement("div");
+        spinner.className = "synoptic-spinner";
+        this.loadingIndicator.appendChild(spinner);
+
+        this.root.append(this.toolbar, this.zoomBar, this.status, this.loadingIndicator, this.svgHost);
         this.target.appendChild(this.root);
     }
 
@@ -259,9 +266,11 @@ export class Visual implements IVisual {
         this.svgHost.replaceChildren();
 
         if (!model.map) {
-            this.status.textContent = "Bind a map SVG or provide saved image data to render the synoptic panel.";
+            this.loadingIndicator.classList.add("hidden");
             return;
         }
+
+        this.loadingIndicator.classList.remove("hidden");
 
         try {
             const svgMarkup = await this.loadMapMarkup(model.map);
@@ -286,6 +295,7 @@ export class Visual implements IVisual {
             const { matchedElements, labels: labelSpecs } = this.applyData(svgElement, matchMap, model);
 
             this.svgHost.appendChild(svgElement);
+            this.loadingIndicator.classList.add("hidden");
             this.currentSvg = svgElement;
             this.currentMatchedElements = matchedElements;
             this.currentSettings = model.settings.general;
@@ -319,6 +329,7 @@ export class Visual implements IVisual {
                 return;
             }
 
+            this.loadingIndicator.classList.add("hidden");
             this.status.textContent = "Unable to load the configured SVG map.";
             this.writeDiagnostic(model.settings, "render error", error, true);
         }
