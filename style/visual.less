@@ -153,8 +153,10 @@ button { background:none; cursor:pointer; padding:4px !important; font-size:12px
   }
 }
 
-.synoptic-modern:hover .synoptic-zoom-bar {
+.synoptic-modern:hover .synoptic-zoom-bar,
+.synoptic-modern:focus-within .synoptic-zoom-bar {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .synoptic-loading {
