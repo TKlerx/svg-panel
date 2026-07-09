@@ -285,6 +285,99 @@
             "bool": true
           }
         },
+        "style": {
+          "displayName": "Format style",
+          "type": {
+            "enumeration": [
+              {
+                "displayName": "Gradient",
+                "value": "gradient"
+              },
+              {
+                "displayName": "Rules",
+                "value": "rules"
+              }
+            ]
+          }
+        },
+        "fillRule": {
+          "displayName": "Color by rules",
+          "type": {
+            "fillRule": {}
+          },
+          "rule": {
+            "inputRole": "State",
+            "output": {
+              "property": "fill",
+              "selector": [
+                "Category"
+              ]
+            }
+          }
+        },
+        "gradientDiverging": {
+          "displayName": "Add a middle color (diverging)",
+          "type": {
+            "bool": true
+          }
+        },
+        "gradientAutoRange": {
+          "displayName": "Automatic range",
+          "type": {
+            "bool": true
+          }
+        },
+        "gradientMinFill": {
+          "displayName": "Minimum color",
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "gradientCenterFill": {
+          "displayName": "Center color",
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "gradientMaxFill": {
+          "displayName": "Maximum color",
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "gradientMinValue": {
+          "displayName": "Minimum value",
+          "placeHolderText": "Auto",
+          "type": {
+            "numeric": true
+          }
+        },
+        "gradientCenterValue": {
+          "displayName": "Center value",
+          "placeHolderText": "Auto",
+          "type": {
+            "numeric": true
+          }
+        },
+        "gradientMaxValue": {
+          "displayName": "Maximum value",
+          "placeHolderText": "Auto",
+          "type": {
+            "numeric": true
+          }
+        },
         "comparison": {
           "displayName": "Comparison",
           "type": {

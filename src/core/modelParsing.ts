@@ -1,6 +1,6 @@
 import powerbi from "powerbi-visuals-api";
 import { isHighlightActive } from "./interactionState";
-import { resolveDataPointColor } from "./stateColors";
+import { GradientSettings, StateStyle } from "./stateColors";
 
 import DataView = powerbi.DataView;
 import PrimitiveValue = powerbi.PrimitiveValue;
@@ -47,8 +47,20 @@ export interface SynopticVisualSettings {
     };
     states: {
         show: boolean;
+        fill?: string;
         comparison: string;
+        style: StateStyle;
         manual: SynopticManualState[];
+        gradient: {
+            diverging: boolean;
+            autoRange: boolean;
+            minColor: string;
+            centerColor: string;
+            maxColor: string;
+            minValue?: number;
+            centerValue?: number;
+            maxValue?: number;
+        };
     };
     dataLabels: {
         show: boolean;
@@ -128,6 +140,16 @@ export function createSynopticModel<TSelectionId>(
     const dataPoints: SynopticDataPoint<TSelectionId>[] = [];
     const categories = categoryColumn?.values ?? [];
 
+    interface RawPoint {
+        key: string;
+        value?: number;
+        highlightValue?: number;
+        isHighlighted: boolean;
+        stateValue?: number;
+        index: number;
+    }
+
+    const rawPoints: RawPoint[] = [];
     for (let index = 0; index < categories.length; index++) {
         const rawKey = categories[index];
         const key = rawKey == null ? "" : String(rawKey).trim();
@@ -139,23 +161,32 @@ export function createSynopticModel<TSelectionId>(
         const highlightValue = readNumericValue(highlights?.[index]);
         const rawStateValue = readNumericValue(stateMeasureColumn?.values?.[index]);
         const stateValue = rawStateValue ?? value;
-        const color = resolveDataPointColor(
-            stateValue,
-            resolvedStates,
-            settings.states,
-            options.getColor(key),
-            settings.dataPoint.defaultFill
-        );
-
-        dataPoints.push({
+        rawPoints.push({
             key,
             value,
             highlightValue,
             isHighlighted: isHighlightActive(highlightValue),
             stateValue,
+            index
+        });
+    }
+
+    for (const point of rawPoints) {
+        const ruleColor = settings.states.show ? getCategoryStateFillColor(categoryColumn, point.index) : undefined;
+        const color = ruleColor
+            ?? (settings.states.show ? settings.states.fill : undefined)
+            ?? options.getColor(point.key)
+            ?? settings.dataPoint.defaultFill;
+
+        dataPoints.push({
+            key: point.key,
+            value: point.value,
+            highlightValue: point.highlightValue,
+            isHighlighted: point.isHighlighted,
+            stateValue: point.stateValue,
             color,
-            selectionId: options.createSelectionId(categoryColumn, index),
-            tooltips: buildTooltips(categoryColumn, measureColumn, stateMeasureColumn, tooltipColumns, index, key, value, stateValue)
+            selectionId: options.createSelectionId(categoryColumn!, point.index),
+            tooltips: buildTooltips(categoryColumn!, measureColumn, stateMeasureColumn, tooltipColumns, point.index, point.key, point.value, point.stateValue)
         });
     }
 
@@ -171,6 +202,12 @@ export function createSynopticModel<TSelectionId>(
 
 export function readSettings(dataView: DataView | undefined): SynopticVisualSettings {
     const objects = dataView?.metadata?.objects;
+
+    // Backward compatibility: legacy reports configured rule-based coloring via
+    // manualState* values and never persisted a `style` property. For those reports
+    // we must default to "rules" so their colors keep working; brand-new reports
+    // (no manual states configured) default to "gradient".
+    const defaultStyle: StateStyle = "rules";
 
     return {
         general: {
@@ -188,11 +225,23 @@ export function readSettings(dataView: DataView | undefined): SynopticVisualSett
         },
         states: {
             show: getValue<boolean>(objects, "states", "show", true),
+            fill: getFillColor(objects, "states", "fill"),
             comparison: getValue<string>(objects, "states", "comparison", "<=") ?? "<=",
+            style: (getValue<string>(objects, "states", "style", defaultStyle) ?? defaultStyle) as StateStyle,
             manual: [1, 2, 3, 4, 5].map((index) => ({
                 value: getValue<number>(objects, "states", `manualState${index}`),
                 color: getFillColor(objects, "states", `manualState${index}Fill`)
-            }))
+            })),
+            gradient: {
+                diverging: getValue<boolean>(objects, "states", "gradientDiverging", false) ?? false,
+                autoRange: getValue<boolean>(objects, "states", "gradientAutoRange", true) ?? true,
+                minColor: getFillColor(objects, "states", "gradientMinFill", "#FD625E") ?? "#FD625E",
+                centerColor: getFillColor(objects, "states", "gradientCenterFill", "#F2C80F") ?? "#F2C80F",
+                maxColor: getFillColor(objects, "states", "gradientMaxFill", "#01B8AA") ?? "#01B8AA",
+                minValue: getValue<number>(objects, "states", "gradientMinValue"),
+                centerValue: getValue<number>(objects, "states", "gradientCenterValue"),
+                maxValue: getValue<number>(objects, "states", "gradientMaxValue")
+            }
         },
         dataLabels: {
             show: getValue<boolean>(objects, "dataLabels", "show", false),
@@ -206,6 +255,28 @@ export function readSettings(dataView: DataView | undefined): SynopticVisualSett
         toolbar: {
             zoom: getValue<boolean>(objects, "toolbar", "zoom", true)
         }
+    };
+}
+
+export function resolveGradientSettings(
+    states: SynopticVisualSettings["states"],
+    stateValues: Array<number | undefined>
+): GradientSettings {
+    const numericValues = stateValues.filter((value): value is number => typeof value === "number");
+    const domainMin = numericValues.length > 0 ? Math.min(...numericValues) : 0;
+    const domainMax = numericValues.length > 0 ? Math.max(...numericValues) : 0;
+
+    const gradient = states.gradient;
+    const useAuto = gradient.autoRange;
+    const minValue = !useAuto && gradient.minValue != null ? gradient.minValue : domainMin;
+    const maxValue = !useAuto && gradient.maxValue != null ? gradient.maxValue : domainMax;
+    const centerValue = !useAuto && gradient.centerValue != null ? gradient.centerValue : (minValue + maxValue) / 2;
+
+    return {
+        diverging: gradient.diverging,
+        min: { color: gradient.minColor, value: minValue },
+        center: { color: gradient.centerColor, value: centerValue },
+        max: { color: gradient.maxColor, value: maxValue }
     };
 }
 
@@ -356,6 +427,16 @@ function getValue<T>(
 
 function readNumericValue(value: PrimitiveValue): number | undefined {
     return typeof value === "number" ? value : undefined;
+}
+
+function getCategoryStateFillColor(
+    categoryColumn: powerbi.DataViewCategoryColumn | undefined,
+    index: number
+): string | undefined {
+    const objects = categoryColumn?.objects;
+    const dataPointObject = objects?.[index] as powerbi.DataViewObject | undefined;
+    const fill = dataPointObject?.["states"] as { fill?: { solid?: { color?: string } } } | undefined;
+    return fill?.fill?.solid?.color;
 }
 
 function formatNumberWithPattern(value: number, format: string): string {

@@ -322,7 +322,14 @@ export class Visual implements IVisual {
                 hasMap: Boolean(model.map),
                 hasBoundStates: model.hasBoundStates,
                 hasHighlights: model.hasHighlights,
-                mapName: model.map.displayName ?? model.map.URL ?? "inline SVG"
+                mapName: model.map.displayName ?? model.map.URL ?? "inline SVG",
+                statesStyle: model.settings.states.style,
+                statesShow: model.settings.states.show,
+                // When matchedAreas is 0, States coloring can never apply. Compare these
+                // two lists to find the mismatch: data keys come from the Category field,
+                // indexed keys come from the SVG area names/ids.
+                sampleDataKeys: model.dataPoints.slice(0, 12).map((point) => point.key),
+                sampleIndexedKeys: Array.from(matchMap.keys()).slice(0, 12)
             });
         } catch (error) {
             if (nonce !== this.updateNonce) {

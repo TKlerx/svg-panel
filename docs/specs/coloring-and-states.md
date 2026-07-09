@@ -17,9 +17,23 @@ The visual assigns fill colors to matched SVG areas from state rules, bound stat
 
 The current color resolution order is:
 
-1. `Implemented`: Use a matching state color when state coloring is enabled and a state rule matches.
-2. `Implemented`: Fall back to the Power BI host palette for the category key.
-3. `Implemented`: Fall back to the configured default fill color.
+1. `Implemented`: When state coloring is enabled and `states.style` is `gradient`, interpolate the area color across the configured gradient.
+2. `Implemented`: When state coloring is enabled and `states.style` is `rules`, use a matching state rule color.
+3. `Implemented`: Fall back to the Power BI host palette for the category key.
+4. `Implemented`: Fall back to the configured default fill color.
+
+## Format Style
+
+- `Implemented`: `states.style` selects between `gradient` (default) and `rules`, mirroring the Power BI conditional-formatting dialog.
+- `Implemented`: The `State` measure role drives the value used for coloring; when unbound the visual falls back to the `Y` measure.
+
+## Gradient Coloring
+
+- `Implemented`: `states.gradientMinFill` and `states.gradientMaxFill` define the two-color gradient endpoints.
+- `Implemented`: `states.gradientDiverging` adds a middle color (`states.gradientCenterFill`) for diverging gradients.
+- `Implemented`: `states.gradientAutoRange` derives the minimum/maximum value bounds from the data domain.
+- `Implemented`: When automatic range is off, `states.gradientMinValue`, `states.gradientCenterValue`, and `states.gradientMaxValue` set the bounds explicitly.
+- `Implemented`: Values outside the configured range are clamped to the nearest endpoint color.
 
 ## Manual State Rules
 
@@ -39,8 +53,8 @@ The current color resolution order is:
 
 ## Saturation And Effects
 
+- `Implemented`: Gradient mode replaces the legacy saturation behavior with explicit min/center/max color interpolation.
 - `Legacy parity target`: Restore `states.calculate` modes: `absolute`, `percentage`, and `modifier`.
-- `Legacy parity target`: Restore saturation behavior using `states.saturate`, `states.saturateMin`, and `states.saturateMax`.
 - `Legacy parity target`: Restore `states.baseFill` runtime behavior.
 - `Legacy parity target`: Restore transparent/effects behavior so the visual can render only the SVG with no unwanted background.
 

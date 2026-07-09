@@ -19,10 +19,9 @@ const comparisonItems: EnumMember[] = [
     { value: "<", displayName: "<" }
 ];
 
-const calculateItems: EnumMember[] = [
-    { value: "absolute", displayName: "Absolute value" },
-    { value: "percentage", displayName: "Percentage" },
-    { value: "modifier", displayName: "Modifier" }
+const stateStyleItems: EnumMember[] = [
+    { value: "gradient", displayName: "Gradient" },
+    { value: "rules", displayName: "Rules" }
 ];
 
 const labelStyleItems: EnumMember[] = [
@@ -158,6 +157,61 @@ class StatesCardSettings extends FormattingSettingsCard {
         value: true
     });
 
+    style = new formattingSettings.ItemDropdown({
+        name: "style",
+        displayName: "Format style",
+        value: stateStyleItems[0],
+        items: stateStyleItems
+    });
+
+    gradientMinFill = new formattingSettings.ColorPicker({
+        name: "gradientMinFill",
+        displayName: "Minimum color",
+        value: { value: "#FD625E" }
+    });
+
+    gradientDiverging = new formattingSettings.ToggleSwitch({
+        name: "gradientDiverging",
+        displayName: "Add a middle color (diverging)",
+        value: false
+    });
+
+    gradientCenterFill = new formattingSettings.ColorPicker({
+        name: "gradientCenterFill",
+        displayName: "Center color",
+        value: { value: "#F2C80F" }
+    });
+
+    gradientMaxFill = new formattingSettings.ColorPicker({
+        name: "gradientMaxFill",
+        displayName: "Maximum color",
+        value: { value: "#01B8AA" }
+    });
+
+    gradientAutoRange = new formattingSettings.ToggleSwitch({
+        name: "gradientAutoRange",
+        displayName: "Automatic range",
+        value: true
+    });
+
+    gradientMinValue = new formattingSettings.NumUpDown({
+        name: "gradientMinValue",
+        displayName: "Minimum value",
+        value: 0
+    });
+
+    gradientCenterValue = new formattingSettings.NumUpDown({
+        name: "gradientCenterValue",
+        displayName: "Center value",
+        value: 0
+    });
+
+    gradientMaxValue = new formattingSettings.NumUpDown({
+        name: "gradientMaxValue",
+        displayName: "Maximum value",
+        value: 0
+    });
+
     comparison = new formattingSettings.ItemDropdown({
         name: "comparison",
         displayName: "Comparison",
@@ -165,29 +219,11 @@ class StatesCardSettings extends FormattingSettingsCard {
         items: comparisonItems
     });
 
-    calculate = new formattingSettings.ItemDropdown({
-        name: "calculate",
-        displayName: "Value type",
-        value: calculateItems[0],
-        items: calculateItems
-    });
-
-    saturate = new formattingSettings.ToggleSwitch({
-        name: "saturate",
-        displayName: "Saturate",
-        value: false
-    });
-
-    saturateMin = new formattingSettings.NumUpDown({
-        name: "saturateMin",
-        displayName: "Min % saturation",
-        value: 0
-    });
-
-    saturateMax = new formattingSettings.NumUpDown({
-        name: "saturateMax",
-        displayName: "Max % saturation",
-        value: 0
+    fill = new formattingSettings.ColorPicker({
+        name: "fill",
+        displayName: "Color",
+        value: { value: "#01B8AA" },
+        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
     });
 
     manualState1Fill = new formattingSettings.ColorPicker({
@@ -260,40 +296,12 @@ class StatesCardSettings extends FormattingSettingsCard {
     analyticsPane = false;
     topLevelSlice = this.show;
     slices: FormattingSettingsSlice[] = [
-        this.comparison,
-        this.calculate,
-        this.saturate,
-        this.saturateMin,
-        this.saturateMax,
-        this.manualState1Fill,
-        this.manualState1,
-        this.manualState2Fill,
-        this.manualState2,
-        this.manualState3Fill,
-        this.manualState3,
-        this.manualState4Fill,
-        this.manualState4,
-        this.manualState5Fill,
-        this.manualState5
+        this.fill
     ];
 
     onPreProcess(): void {
         const enabled = this.show.value;
-        this.comparison.visible = enabled;
-        this.calculate.visible = enabled;
-        this.saturate.visible = enabled;
-        this.saturateMin.visible = enabled && this.saturate.value;
-        this.saturateMax.visible = enabled && this.saturate.value;
-        this.manualState1Fill.visible = enabled;
-        this.manualState1.visible = enabled;
-        this.manualState2Fill.visible = enabled;
-        this.manualState2.visible = enabled;
-        this.manualState3Fill.visible = enabled;
-        this.manualState3.visible = enabled;
-        this.manualState4Fill.visible = enabled;
-        this.manualState4.visible = enabled;
-        this.manualState5Fill.visible = enabled;
-        this.manualState5.visible = enabled;
+        this.fill.visible = enabled;
     }
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveDataPointColor, resolveStateColor, StateColorRule } from "./stateColors";
+import { GradientSettings, mixColors, resolveDataPointColor, resolveGradientColor, resolveStateColor, StateColorRule } from "./stateColors";
 
 const states: StateColorRule[] = [
     { value: 0.33, color: "#cf4a5c" },
@@ -63,5 +63,78 @@ describe("resolveDataPointColor", () => {
     it("falls back to default fill when neither state nor palette color is available", () => {
         expect(resolveDataPointColor(0.7, states, { show: true, comparison: "=" }, undefined, "#default"))
             .toBe("#default");
+    });
+
+    it("uses the gradient color when style is gradient", () => {
+        const gradient: GradientSettings = {
+            diverging: false,
+            min: { color: "#000000", value: 0 },
+            center: { color: "#808080", value: 5 },
+            max: { color: "#ffffff", value: 10 }
+        };
+
+        expect(resolveDataPointColor(5, states, { show: true, comparison: "<=", style: "gradient", gradient }, "#palette", "#default"))
+            .toBe("#808080");
+    });
+});
+
+describe("mixColors", () => {
+    it("returns the start color at t = 0", () => {
+        expect(mixColors("#000000", "#ffffff", 0)).toBe("#000000");
+    });
+
+    it("returns the end color at t = 1", () => {
+        expect(mixColors("#000000", "#ffffff", 1)).toBe("#ffffff");
+    });
+
+    it("interpolates linearly at the midpoint", () => {
+        expect(mixColors("#000000", "#ffffff", 0.5)).toBe("#808080");
+    });
+
+    it("supports shorthand hex colors", () => {
+        expect(mixColors("#000", "#fff", 1)).toBe("#ffffff");
+    });
+});
+
+describe("resolveGradientColor", () => {
+    const linear: GradientSettings = {
+        diverging: false,
+        min: { color: "#000000", value: 0 },
+        center: { color: "#808080", value: 5 },
+        max: { color: "#ffffff", value: 10 }
+    };
+
+    it("returns undefined when the value is missing", () => {
+        expect(resolveGradientColor(undefined, linear)).toBeUndefined();
+    });
+
+    it("interpolates a two-color gradient across the domain", () => {
+        expect(resolveGradientColor(0, linear)).toBe("#000000");
+        expect(resolveGradientColor(5, linear)).toBe("#808080");
+        expect(resolveGradientColor(10, linear)).toBe("#ffffff");
+    });
+
+    it("clamps values outside the domain", () => {
+        expect(resolveGradientColor(-5, linear)).toBe("#000000");
+        expect(resolveGradientColor(20, linear)).toBe("#ffffff");
+    });
+
+    it("uses the center color around the midpoint for diverging gradients", () => {
+        const diverging: GradientSettings = { ...linear, diverging: true };
+        expect(resolveGradientColor(0, diverging)).toBe("#000000");
+        expect(resolveGradientColor(5, diverging)).toBe("#808080");
+        expect(resolveGradientColor(10, diverging)).toBe("#ffffff");
+        expect(resolveGradientColor(2.5, diverging)).toBe("#404040");
+    });
+
+    it("returns the min color when the domain has no span", () => {
+        const flat: GradientSettings = {
+            diverging: false,
+            min: { color: "#123456", value: 4 },
+            center: { color: "#808080", value: 4 },
+            max: { color: "#654321", value: 4 }
+        };
+
+        expect(resolveGradientColor(4, flat)).toBe("#123456");
     });
 });

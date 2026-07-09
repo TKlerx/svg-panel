@@ -66,6 +66,11 @@ describe("readSettings", () => {
 describe("createSynopticModel", () => {
     it("builds data points with colors, tooltips, highlights, and selection ids", () => {
         const category = categoryColumn("Artikel", "Category", ["Klopapier", " ", "Backwaren"]);
+        category.objects = [
+            { states: { fill: { solid: { color: "#ff0000" } } } },
+            undefined,
+            { states: { fill: { solid: { color: "#00ff00" } } } }
+        ];
         const measure = valueColumn("Fuellstand", "Y", [0, 0.5, 0.75], {
             highlights: [0, 0, 0.75],
             source: { format: "0.0%" }
@@ -77,6 +82,7 @@ describe("createSynopticModel", () => {
             metadata: {
                 objects: {
                     states: {
+                        style: "rules",
                         manualState1: 0.5,
                         manualState1Fill: { solid: { color: "#d6bf00" } },
                         manualState2: 1,
@@ -101,7 +107,7 @@ describe("createSynopticModel", () => {
             highlightValue: 0,
             isHighlighted: false,
             stateValue: 0.1,
-            color: "#d6bf00",
+            color: "#ff0000",
             selectionId: "selection:0"
         });
         expect(model.dataPoints[0].tooltips).toEqual([
@@ -113,9 +119,38 @@ describe("createSynopticModel", () => {
         expect(model.dataPoints[1]).toMatchObject({
             key: "Backwaren",
             isHighlighted: true,
-            color: "#22aa22",
+            color: "#00ff00",
             selectionId: "selection:2"
         });
+    });
+
+    it("uses the configured constant States color when no conditional-formatting color is present", () => {
+        const category = categoryColumn("Artikel", "Category", ["A", "B"]);
+        category.objects = [
+            { states: {} },
+            undefined
+        ];
+        const measure = valueColumn("Fuellstand", "Y", [0.2, 0.9]);
+        const state = valueColumn("State", "State", [0.2, 0.9]);
+
+        const model = createSynopticModel(dataView({
+            metadata: {
+                objects: {
+                    states: {
+                        fill: { solid: { color: "#123abc" } }
+                    }
+                }
+            },
+            categorical: {
+                categories: [category],
+                values: [measure, state]
+            }
+        }), {
+            getColor: () => "#palette",
+            createSelectionId: (_column, index) => `selection:${index}`
+        });
+
+        expect(model.dataPoints.map((point) => point.color)).toEqual(["#123abc", "#123abc"]);
     });
 
     it("uses bound states instead of manual states when bound state columns exist", () => {
@@ -132,6 +167,7 @@ describe("createSynopticModel", () => {
             metadata: {
                 objects: {
                     states: {
+                        style: "rules",
                         manualState1: 1,
                         manualState1Fill: { solid: { color: "#manual" } }
                     }
@@ -148,7 +184,24 @@ describe("createSynopticModel", () => {
 
         expect(model.hasBoundStates).toBe(true);
         expect(model.boundStates.map((state) => state.value)).toEqual([0.5, 1]);
-        expect(model.dataPoints.map((point) => point.color)).toEqual(["#low", "#high"]);
+        expect(model.dataPoints.map((point) => point.color)).toEqual(["#palette", "#palette"]);
+    });
+
+    it("falls back to palette colors when no States color is configured", () => {
+        const category = categoryColumn("Artikel", "Category", ["A", "B", "C"]);
+        const measure = valueColumn("Value", "Y", [0, 5, 10]);
+
+        const model = createSynopticModel(dataView({
+            categorical: {
+                categories: [category],
+                values: [measure]
+            }
+        }), {
+            getColor: (key) => `palette:${key}`,
+            createSelectionId: (_column, index) => index
+        });
+
+        expect(model.dataPoints.map((point) => point.color)).toEqual(["palette:A", "palette:B", "palette:C"]);
     });
 });
 
