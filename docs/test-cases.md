@@ -5,8 +5,8 @@
 ### Package Build
 
 Steps:
-1. Run `npm install`
-2. Run `npm run package`
+1. Run `pnpm install`
+2. Run `pnpm package`
 
 Expected:
 - build completes successfully

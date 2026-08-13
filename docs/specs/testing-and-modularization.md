@@ -15,7 +15,7 @@ The visual now works well enough that future changes should be protected by test
 ## Recommended Test Stack
 
 - `Backlog`: Add `vitest` for fast TypeScript unit tests.
-- `Backlog`: Add `npm test`.
+- `Backlog`: Add `pnpm test`.
 - `Backlog`: Add CI checks for lint, test, and package build.
 
 ## First Extraction Targets
