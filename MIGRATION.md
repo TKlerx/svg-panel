@@ -9,8 +9,8 @@
 
 ## What works now
 
-- `npm install`
-- `npm run package`
+- `pnpm install`
+- `pnpm package`
 - Loading inline SVG markup from persisted `general.imageData`
 - Loading a map from the `MapSeries` role when a URL or SVG payload is bound there
 - Matching category names to SVG element `id`, `title`, or child `<title>` values
