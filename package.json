@@ -28,7 +28,7 @@
     "less-loader": "12.3.2",
     "powerbi-visuals-tools": "7.2.1",
     "ts-loader": "9.5.7",
-    "typescript": "5.5.4",
+    "typescript": "6.0.3",
     "vitest": "^4.1.10"
   }
 }
