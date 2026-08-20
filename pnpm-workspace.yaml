@@ -1,0 +1,4 @@
+minimumReleaseAge: 4320 # nosemgrep: package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age
+
+overrides:
+  'sockjs>uuid': 11.1.1
