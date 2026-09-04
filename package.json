@@ -13,7 +13,10 @@
     "start": "pbiviz start",
     "package": "pbiviz package",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "complexity": "eslint . --rule complexity:[2,31]",
+    "duplication": "jscpd src --threshold 5 --gitignore",
+    "validate": "pwsh -NoProfile -File ./validate.ps1 all"
   },
   "dependencies": {
     "powerbi-visuals-api": "~5.11.1",
@@ -24,6 +27,7 @@
     "css-loader": "7.1.4",
     "eslint": "^10.8.1",
     "eslint-plugin-powerbi-visuals": "^1.0.0",
+    "jscpd": "^4.0.9",
     "json-loader": "0.5.7",
     "less-loader": "12.3.2",
     "powerbi-visuals-tools": "7.2.1",
