@@ -10,6 +10,7 @@ minimumReleaseAgeExclude:
   - hono@4.13.5
 
 overrides:
+  "minimatch@>=7.0.0 <11.0.1": "11.0.1"
   'hono@<4.13.16': 4.13.16
   '@hono/node-server@<2.1.6': 2.1.6
   probe-image-size@<7.4.0: ^7.4.0
